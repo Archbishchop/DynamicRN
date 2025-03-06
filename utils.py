@@ -5,7 +5,7 @@ import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import logging
-from io import StringIO
+from io import StringIO, BytesIO
 import csv
 
 # Configure logging
@@ -31,20 +31,24 @@ def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
 
-def process_csv_upload(csv_content, db_session, field_mapping):
-    """Process uploaded CSV file and import contacts
+def process_file_upload(file_content, file_type, db_session, field_mapping):
+    """Process uploaded CSV or Excel file and import contacts
 
     Args:
-        csv_content: String content of the CSV file
+        file_content: Binary content of the file
+        file_type: String indicating file type ('csv' or 'excel')
         db_session: SQLAlchemy session
-        field_mapping: Dict mapping CSV columns to database fields
+        field_mapping: Dict mapping file columns to database fields
 
     Returns:
         tuple: (success_count, error_count, error_messages)
     """
     try:
-        # Read CSV content
-        df = pd.read_csv(StringIO(csv_content))
+        # Read file content based on type
+        if file_type == 'csv':
+            df = pd.read_csv(StringIO(file_content.decode('utf-8')))
+        else:  # Excel
+            df = pd.read_excel(BytesIO(file_content))
 
         success_count = 0
         error_count = 0
@@ -55,9 +59,9 @@ def process_csv_upload(csv_content, db_session, field_mapping):
             try:
                 # Map fields according to user's selection
                 contact_data = {}
-                for db_field, csv_field in field_mapping.items():
-                    if csv_field in row:
-                        contact_data[db_field] = row[csv_field]
+                for db_field, file_field in field_mapping.items():
+                    if file_field in row:
+                        contact_data[db_field] = row[file_field]
 
                 # Validate required fields
                 if not all([
@@ -99,7 +103,7 @@ def process_csv_upload(csv_content, db_session, field_mapping):
         return success_count, error_count, error_messages
 
     except Exception as e:
-        logger.error(f"CSV processing error: {str(e)}")
+        logger.error(f"File processing error: {str(e)}")
         return 0, 0, [f"File processing error: {str(e)}"]
 
 def send_email(to_email, subject, body):

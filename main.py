@@ -4,7 +4,7 @@ from models import (
     Contact, EmailTemplate, SessionLocal, init_db,
     NURSE_TYPES, NURSING_SPECIALTIES, NURSING_CERTIFICATIONS
 )
-from utils import validate_email, send_email, process_csv_upload
+from utils import validate_email, send_email, process_file_upload
 import os
 from datetime import datetime
 
@@ -47,17 +47,24 @@ if page == "Import Contacts":
     st.header("Import Contacts")
 
     # File upload
-    uploaded_file = st.file_uploader("Upload CSV File", type=['csv'])
+    uploaded_file = st.file_uploader("Upload Contact List", type=['csv', 'xlsx', 'xls'])
 
     if uploaded_file:
+        # Determine file type
+        file_type = 'csv' if uploaded_file.name.endswith('.csv') else 'excel'
+
         # Read and display sample data
-        df_sample = pd.read_csv(uploaded_file, nrows=5)
+        if file_type == 'csv':
+            df_sample = pd.read_csv(uploaded_file, nrows=5)
+        else:
+            df_sample = pd.read_excel(uploaded_file, nrows=5)
+
         st.write("Preview of first 5 rows:")
         st.write(df_sample)
 
         # Field mapping
-        st.subheader("Map CSV Columns to Contact Fields")
-        st.info("Select which CSV columns correspond to each contact field")
+        st.subheader("Map File Columns to Contact Fields")
+        st.info("Select which columns from your file correspond to each contact field")
 
         csv_columns = df_sample.columns.tolist()
 
@@ -120,12 +127,13 @@ if page == "Import Contacts":
             else:
                 # Reset file pointer and read content
                 uploaded_file.seek(0)
-                csv_content = uploaded_file.read().decode('utf-8')
+                file_content = uploaded_file.read()
 
                 # Process import
                 with st.spinner("Importing contacts..."):
-                    success_count, error_count, error_messages = process_csv_upload(
-                        csv_content,
+                    success_count, error_count, error_messages = process_file_upload(
+                        file_content,
+                        file_type,
                         st.session_state.db,
                         field_mapping
                     )
@@ -285,7 +293,7 @@ elif page == "Email Blast":
     # Query contacts
     query = st.session_state.db.query(Contact)
     if specialization_filter:
-        query = query.filter(Contact.specialty.in_(specialization_filter)) #Corrected field name
+        query = query.filter(Contact.specialty.in_(specialization_filter))
     if zip_filter:
         query = query.filter(Contact.zip_code == zip_filter)
 
@@ -309,7 +317,7 @@ elif page == "Email Blast":
                 progress_bar = st.progress(0)
                 for idx, contact in enumerate(filtered_contacts):
                     personalized_body = body.replace("[FIRST_NAME]", contact.first_name)
-                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialty) #Corrected field name
+                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialty)
                     success = send_email(
                         to_email=contact.email,
                         subject=subject,
@@ -347,7 +355,7 @@ elif page == "Templates":
     # List and manage existing templates
     templates = st.session_state.db.query(EmailTemplate).all()
     for template in templates:
-        if template.name != "Network Update":  # Skip the Network Update template
+        if template.name != "Network Update":
             with st.expander(f"📧 {template.name}"):
                 with st.form(f"edit_template_{template.id}"):
                     edited_name = st.text_input("Template Name", template.name)
