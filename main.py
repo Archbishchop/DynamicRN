@@ -326,7 +326,7 @@ elif page == "Email Blast":
                     # Replace placeholders with contact info, using defaults for None values
                     personalized_body = body.replace("[FIRST_NAME]", contact.first_name or "Valued Nurse")
                     personalized_body = personalized_body.replace("[NURSE_TYPE]", contact.nurse_type or "healthcare professional")
-                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialty or "your specialty")
+                    personalized_body = personalized_body.replace("[SPECIALTY]", contact.specialty or "your specialty")
 
                     success = send_email(
                         to_email=contact.email,
