@@ -219,6 +219,118 @@ elif page == "Contacts Management":
     # Contact list and editing interface
     st.subheader("Contact List")
 
+    # Filters section
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        search_term = st.text_input("Search contacts", "")
+    with col2:
+        nurse_type_filter = st.multiselect(
+            "Filter by nurse type",
+            options=NURSE_TYPES
+        )
+    with col3:
+        specialty_filter = st.multiselect(
+            "Filter by specialty",
+            options=NURSING_SPECIALTIES
+        )
+
+    # Query contacts with filters
+    query = st.session_state.db.query(Contact)
+    if search_term:
+        query = query.filter(
+            (Contact.first_name.ilike(f"%{search_term}%")) |
+            (Contact.last_name.ilike(f"%{search_term}%")) |
+            (Contact.email.ilike(f"%{search_term}%"))
+        )
+    if nurse_type_filter:
+        query = query.filter(Contact.nurse_type.in_(nurse_type_filter))
+    if specialty_filter:
+        query = query.filter(Contact.specialty.in_(specialty_filter))
+
+    contacts = query.all()
+
+    # Initialize session state for selected contacts if not exists
+    if 'selected_contacts' not in st.session_state:
+        st.session_state.selected_contacts = set()
+
+    # Display contacts in a table format with selection
+    if contacts:
+        # Select All checkbox
+        col1, col2 = st.columns([1, 5])
+        with col1:
+            if st.checkbox("Select All", key="select_all"):
+                st.session_state.selected_contacts = set(contact.id for contact in contacts)
+            else:
+                st.session_state.selected_contacts = set()
+
+        # Show bulk delete button if contacts are selected
+        if st.session_state.selected_contacts:
+            with col2:
+                if st.button("🗑️ Delete Selected", type="secondary"):
+                    if st.session_state.selected_contacts:
+                        # Confirm deletion
+                        st.warning(f"Are you sure you want to delete {len(st.session_state.selected_contacts)} contacts?")
+                        col1, col2 = st.columns([1, 4])
+                        with col1:
+                            if st.button("✓ Confirm Delete"):
+                                # Delete selected contacts
+                                for contact_id in st.session_state.selected_contacts:
+                                    contact = st.session_state.db.query(Contact).get(contact_id)
+                                    if contact:
+                                        st.session_state.db.delete(contact)
+                                st.session_state.db.commit()
+                                st.session_state.selected_contacts = set()
+                                st.success("Selected contacts deleted successfully!")
+                                st.rerun()
+                        with col2:
+                            if st.button("✗ Cancel"):
+                                st.rerun()
+
+        st.divider()
+
+        # Display contacts with checkboxes
+        for contact in contacts:
+            with st.container():
+                cols = st.columns([0.5, 2.5, 2, 2, 2, 2, 1])
+
+                # Selection checkbox
+                with cols[0]:
+                    if st.checkbox("", key=f"select_{contact.id}", 
+                                 value=contact.id in st.session_state.selected_contacts):
+                        st.session_state.selected_contacts.add(contact.id)
+                    else:
+                        st.session_state.selected_contacts.discard(contact.id)
+
+                # Contact information
+                with cols[1]:
+                    st.write(f"**{contact.first_name} {contact.last_name}**")
+                with cols[2]:
+                    st.write(contact.email)
+                with cols[3]:
+                    st.write(contact.phone_number or "N/A")
+                with cols[4]:
+                    nurse_type_display = contact.nurse_type
+                    if contact.nurse_type and '(' in contact.nurse_type:
+                        nurse_type_display = contact.nurse_type.split('(')[1].rstrip(')')
+                    st.write(f"{nurse_type_display} - {contact.specialty}")
+                with cols[5]:
+                    cert_acronyms = []
+                    if contact.certifications:
+                        for cert in contact.certifications:
+                            if '(' in cert:
+                                acronym = cert.split('(')[0].strip()
+                                cert_acronyms.append(acronym)
+                            else:
+                                cert_acronyms.append(cert)
+                    st.write(", ".join(cert_acronyms) if cert_acronyms else "N/A")
+                with cols[6]:
+                    if st.button("📝", key=f"edit_{contact.id}"):
+                        st.session_state.editing_contact = contact.id
+                        st.rerun()
+                st.divider()
+    else:
+        st.info("No contacts found.")
+
     # Edit contact form
     if st.session_state.editing_contact:
         st.subheader("Edit Contact")
@@ -267,97 +379,6 @@ elif page == "Contacts Management":
                             st.success("Contact updated successfully!")
                             st.session_state.editing_contact = None
                             st.rerun()
-
-    # Contact list with filters
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        search_term = st.text_input("Search contacts", "")
-    with col2:
-        nurse_type_filter = st.multiselect(
-            "Filter by nurse type",
-            options=NURSE_TYPES
-        )
-    with col3:
-        specialty_filter = st.multiselect(
-            "Filter by specialty",
-            options=NURSING_SPECIALTIES
-        )
-
-    # Query contacts
-    query = st.session_state.db.query(Contact)
-    if search_term:
-        query = query.filter(
-            (Contact.first_name.ilike(f"%{search_term}%")) |
-            (Contact.last_name.ilike(f"%{search_term}%")) |
-            (Contact.email.ilike(f"%{search_term}%"))
-        )
-    if nurse_type_filter:
-        query = query.filter(Contact.nurse_type.in_(nurse_type_filter))
-    if specialty_filter:
-        query = query.filter(Contact.specialty.in_(specialty_filter))
-
-    contacts = query.all()
-
-    # Display contacts in a table format
-    if contacts:
-        contact_data = []
-        for contact in contacts:
-            # Extract acronyms from certifications
-            cert_acronyms = []
-            if contact.certifications:
-                for cert in contact.certifications:
-                    # Extract text within parentheses if it exists, otherwise use the full name
-                    if '(' in cert:
-                        acronym = cert.split('(')[0].strip()
-                        cert_acronyms.append(acronym)
-                    else:
-                        cert_acronyms.append(cert)
-
-            # Extract nurse type acronym
-            nurse_type_display = contact.nurse_type
-            if contact.nurse_type and '(' in contact.nurse_type:
-                nurse_type_display = contact.nurse_type.split('(')[1].rstrip(')')
-
-            contact_data.append({
-                "Name": f"{contact.first_name} {contact.last_name}",
-                "Email": contact.email,
-                "Phone": contact.phone_number or "N/A",
-                "Type": nurse_type_display,
-                "Specialty": contact.specialty,
-                "Certifications": ", ".join(cert_acronyms) if cert_acronyms else "N/A",
-                "Actions": contact.id
-            })
-
-        df = pd.DataFrame(contact_data)
-
-        # Display the table
-        for idx, row in df.iterrows():
-            with st.container():
-                cols = st.columns([3, 2, 2, 2, 2, 1, 1])
-                with cols[0]:
-                    st.write(f"**{row['Name']}**")
-                with cols[1]:
-                    st.write(row['Email'])
-                with cols[2]:
-                    st.write(row['Phone'])
-                with cols[3]:
-                    st.write(f"{row['Type']} - {row['Specialty']}")
-                with cols[4]:
-                    st.write(row['Certifications'])
-                with cols[5]:
-                    if st.button("📝", key=f"edit_{row['Actions']}"):
-                        st.session_state.editing_contact = row['Actions']
-                        st.rerun()
-                with cols[6]:
-                    if st.button("🗑️", key=f"delete_{row['Actions']}"):
-                        contact_to_delete = st.session_state.db.query(Contact).get(row['Actions'])
-                        if contact_to_delete:
-                            st.session_state.db.delete(contact_to_delete)
-                            st.session_state.db.commit()
-                            st.rerun()
-                st.divider()
-    else:
-        st.info("No contacts found.")
 
 elif page == "Email Blast":
     st.header("Send Email Blast")
