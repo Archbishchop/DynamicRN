@@ -247,7 +247,23 @@ elif page == "Contacts Management":
     if specialty_filter:
         query = query.filter(Contact.specialty.in_(specialty_filter))
 
-    contacts = query.all()
+    # Get total count for pagination
+    total_contacts = query.count()
+    contacts_per_page = 20
+    total_pages = (total_contacts + contacts_per_page - 1) // contacts_per_page
+
+    # Pagination controls
+    col1, col2, col3 = st.columns([2, 3, 2])
+    with col2:
+        current_page = st.selectbox(
+            "Page",
+            options=range(1, total_pages + 1),
+            format_func=lambda x: f"Page {x} of {total_pages}"
+        ) if total_pages > 0 else 1
+
+    # Get paginated contacts
+    offset = (current_page - 1) * contacts_per_page
+    contacts = query.offset(offset).limit(contacts_per_page).all()
 
     # Initialize session state for selected contacts if not exists
     if 'selected_contacts' not in st.session_state:
@@ -266,7 +282,7 @@ elif page == "Contacts Management":
         # Show bulk delete button if contacts are selected
         with col2:
             if len(st.session_state.selected_contacts) > 0:
-                if st.button(f"🗑️ Delete Selected ({len(st.session_state.selected_contacts)})", type="secondary"):
+                if st.button(f"🗑️ Delete Selected ({len(st.session_state.selected_contacts)})", key="bulk_delete"):
                     delete_confirmation = st.warning(f"Are you sure you want to delete {len(st.session_state.selected_contacts)} contacts?", key="delete_confirmation")
                     if delete_confirmation:
                         col1, col2 = st.columns([1, 4])
@@ -285,61 +301,123 @@ elif page == "Contacts Management":
                             if st.button("✗ Cancel", key="cancel_delete"):
                                 st.rerun()
 
-
         st.divider()
 
-        # Display contacts with checkboxes
-        for contact in contacts:
-            with st.container():
-                cols = st.columns([0.5, 2.5, 2, 2, 2, 2, 0.5, 0.5])
+        # Display contacts in a grid layout
+        for i in range(0, len(contacts), 2):
+            col1, col2 = st.columns(2)
 
-                # Selection checkbox
-                with cols[0]:
-                    if st.checkbox("", key=f"select_{contact.id}",
-                                 value=contact.id in st.session_state.selected_contacts,
-                                 label_visibility="collapsed"):
-                        st.session_state.selected_contacts.add(contact.id)
-                    else:
-                        st.session_state.selected_contacts.discard(contact.id)
+            # First contact in the row
+            with col1:
+                if i < len(contacts):
+                    contact = contacts[i]
+                    with st.container():
+                        # Contact card with light background
+                        st.markdown("""
+                        <style>
+                        .contact-card {
+                            background-color: #f8f9fa;
+                            padding: 10px;
+                            border-radius: 5px;
+                            margin: 5px 0;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
 
-                # Contact information
-                with cols[1]:
-                    st.write(f"**{contact.first_name} {contact.last_name}**")
-                with cols[2]:
-                    st.write(contact.email)
-                with cols[3]:
-                    st.write(contact.phone_number or "N/A")
-                with cols[4]:
-                    nurse_type_display = contact.nurse_type
-                    if contact.nurse_type and '(' in contact.nurse_type:
-                        nurse_type_display = contact.nurse_type.split('(')[1].rstrip(')')
-                    st.write(f"{nurse_type_display} - {contact.specialty}")
-                with cols[5]:
-                    cert_acronyms = []
-                    if contact.certifications:
-                        for cert in contact.certifications:
-                            if '(' in cert:
-                                acronym = cert.split('(')[0].strip()
-                                cert_acronyms.append(acronym)
+                        with st.container():
+                            # Selection and buttons row
+                            btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([0.5, 3, 0.5, 0.5])
+                            with btn_col1:
+                                if st.checkbox("", key=f"select_{contact.id}",
+                                             value=contact.id in st.session_state.selected_contacts,
+                                             label_visibility="collapsed"):
+                                    st.session_state.selected_contacts.add(contact.id)
+                                else:
+                                    st.session_state.selected_contacts.discard(contact.id)
+
+                            # Contact info
+                            with btn_col2:
+                                st.write(f"**{contact.first_name} {contact.last_name}**")
+                                st.write(f"📧 {contact.email}")
+                                st.write(f"📱 {contact.phone_number or 'N/A'}")
+
+                                nurse_type_display = contact.nurse_type
+                                if contact.nurse_type and '(' in contact.nurse_type:
+                                    nurse_type_display = contact.nurse_type.split('(')[1].rstrip(')')
+                                st.write(f"👩‍⚕️ {nurse_type_display} - {contact.specialty}")
+
+                                cert_acronyms = []
+                                if contact.certifications:
+                                    for cert in contact.certifications:
+                                        if '(' in cert:
+                                            acronym = cert.split('(')[0].strip()
+                                            cert_acronyms.append(acronym)
+                                        else:
+                                            cert_acronyms.append(cert)
+                                st.write(f"📜 {', '.join(cert_acronyms) if cert_acronyms else 'No certifications'}")
+
+                            # Action buttons
+                            with btn_col3:
+                                if st.button("📝", key=f"edit_{contact.id}"):
+                                    st.session_state.editing_contact = contact.id
+                                    st.rerun()
+                            with btn_col4:
+                                if st.button("🗑️", key=f"delete_{contact.id}"):
+                                    # Delete individual contact
+                                    contact_to_delete = st.session_state.db.query(Contact).get(contact.id)
+                                    if contact_to_delete:
+                                        st.session_state.db.delete(contact_to_delete)
+                                        st.session_state.db.commit()
+                                        st.success(f"Deleted contact: {contact.first_name} {contact.last_name}")
+                                        st.rerun()
+
+            # Second contact in the row
+            with col2:
+                if i + 1 < len(contacts):
+                    contact = contacts[i + 1]
+                    # Repeat the same contact card structure as above
+                    with st.container():
+                        btn_col1, btn_col2, btn_col3, btn_col4 = st.columns([0.5, 3, 0.5, 0.5])
+                        with btn_col1:
+                            if st.checkbox("", key=f"select_{contact.id}",
+                                         value=contact.id in st.session_state.selected_contacts,
+                                         label_visibility="collapsed"):
+                                st.session_state.selected_contacts.add(contact.id)
                             else:
-                                cert_acronyms.append(cert)
-                    st.write(", ".join(cert_acronyms) if cert_acronyms else "N/A")
+                                st.session_state.selected_contacts.discard(contact.id)
 
-                # Action buttons
-                with cols[6]:
-                    if st.button("📝", key=f"edit_{contact.id}"):
-                        st.session_state.editing_contact = contact.id
-                        st.rerun()
-                with cols[7]:
-                    if st.button("🗑️", key=f"delete_{contact.id}"):
-                        # Delete individual contact
-                        contact_to_delete = st.session_state.db.query(Contact).get(contact.id)
-                        if contact_to_delete:
-                            st.session_state.db.delete(contact_to_delete)
-                            st.session_state.db.commit()
-                            st.success(f"Deleted contact: {contact.first_name} {contact.last_name}")
-                            st.rerun()
-                st.divider()
+                        with btn_col2:
+                            st.write(f"**{contact.first_name} {contact.last_name}**")
+                            st.write(f"📧 {contact.email}")
+                            st.write(f"📱 {contact.phone_number or 'N/A'}")
+
+                            nurse_type_display = contact.nurse_type
+                            if contact.nurse_type and '(' in contact.nurse_type:
+                                nurse_type_display = contact.nurse_type.split('(')[1].rstrip(')')
+                            st.write(f"👩‍⚕️ {nurse_type_display} - {contact.specialty}")
+
+                            cert_acronyms = []
+                            if contact.certifications:
+                                for cert in contact.certifications:
+                                    if '(' in cert:
+                                        acronym = cert.split('(')[0].strip()
+                                        cert_acronyms.append(acronym)
+                                    else:
+                                        cert_acronyms.append(cert)
+                            st.write(f"📜 {', '.join(cert_acronyms) if cert_acronyms else 'No certifications'}")
+
+                        with btn_col3:
+                            if st.button("📝", key=f"edit_{contact.id}"):
+                                st.session_state.editing_contact = contact.id
+                                st.rerun()
+                        with btn_col4:
+                            if st.button("🗑️", key=f"delete_{contact.id}"):
+                                contact_to_delete = st.session_state.db.query(Contact).get(contact.id)
+                                if contact_to_delete:
+                                    st.session_state.db.delete(contact_to_delete)
+                                    st.session_state.db.commit()
+                                    st.success(f"Deleted contact: {contact.first_name} {contact.last_name}")
+                                    st.rerun()
     else:
         st.info("No contacts found.")
 
