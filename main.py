@@ -294,7 +294,8 @@ elif page == "Contacts Management":
                 # Selection checkbox
                 with cols[0]:
                     if st.checkbox("", key=f"select_{contact.id}",
-                                 value=contact.id in st.session_state.selected_contacts):
+                                 value=contact.id in st.session_state.selected_contacts,
+                                 label_visibility="collapsed"):
                         st.session_state.selected_contacts.add(contact.id)
                     else:
                         st.session_state.selected_contacts.discard(contact.id)
