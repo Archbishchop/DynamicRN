@@ -4,7 +4,7 @@ from models import (
     Contact, EmailTemplate, SessionLocal, init_db,
     NURSE_TYPES, NURSING_SPECIALTIES, NURSING_CERTIFICATIONS
 )
-from utils import validate_email, send_email, process_file_upload
+from utils import validate_email, send_email, process_file_upload, verify_smtp_connection
 import os
 from datetime import datetime
 
@@ -14,13 +14,18 @@ def check_email_configuration():
     missing_settings = [setting for setting in required_settings if not os.getenv(setting)]
 
     # For Exchange, suggest default settings if not configured
-    if missing_settings:
-        if not os.getenv('SMTP_SERVER'):
-            st.info("For Microsoft Exchange, try using 'outlook.office365.com' as your SMTP server")
-        if not os.getenv('SMTP_PORT'):
-            st.info("For Microsoft Exchange, the default SMTP port is 587")
+    error_message = ""
+    if not os.getenv('SMTP_SERVER'):
+        error_message += "SMTP Server not configured. For Microsoft Exchange, try 'outlook.office365.com'.\n"
+    if not os.getenv('SMTP_PORT'):
+        error_message += "SMTP Port not configured. For Microsoft Exchange, the default is 587.\n"
+    if not os.getenv('SENDER_EMAIL'):
+        error_message += "Sender Email not configured.\n"
+    if not os.getenv('SENDER_PASSWORD'):
+        error_message += "Sender Password not configured.\n"
 
-    return len(missing_settings) == 0
+    return len(missing_settings) == 0, error_message
+
 
 # Initialize database
 init_db()
@@ -338,18 +343,28 @@ elif page == "Contacts Management":
 elif page == "Email Blast":
     st.header("Send Email Blast")
 
-    # Check email configuration
-    if not check_email_configuration():
-        st.error("""
-        Email configuration is incomplete. For Microsoft Exchange (Office 365) email:
+    # Test email configuration first
+    config_ok, config_error = check_email_configuration()
+    if not config_ok:
+        st.error(f"""
+        Email configuration error: {config_error}
 
+        For Microsoft Exchange (Office 365):
         1. SMTP Server: outlook.office365.com
         2. SMTP Port: 587
-        3. Sender Email: Your work email
-        4. Password: Your Office 365 password
+        3. Sender Email: Your Office 365 email
+        4. Password: Your Office 365 password or app-specific password
 
-        If these settings don't work, please contact your IT department as they may have custom settings.
+        Note: If using Multi-Factor Authentication (MFA), you need to create an app password.
         """)
+
+        if st.button("Test Email Configuration"):
+            with st.spinner("Testing SMTP connection..."):
+                connection_ok, connection_error = verify_smtp_connection()
+                if connection_ok:
+                    st.success("✅ Email configuration verified successfully!")
+                else:
+                    st.error(f"❌ Connection test failed: {connection_error}")
         st.stop()
 
     # Filter contacts
@@ -394,6 +409,12 @@ elif page == "Email Blast":
             if len(filtered_contacts) == 0:
                 st.error("Please select at least one recipient.")
             else:
+                # Test connection before sending
+                connection_ok, connection_error = verify_smtp_connection()
+                if not connection_ok:
+                    st.error(f"Email configuration error: {connection_error}")
+                    st.stop()
+
                 progress_container = st.container()
                 with progress_container:
                     progress_bar = st.progress(0)
@@ -407,12 +428,12 @@ elif page == "Email Blast":
                     for idx, contact in enumerate(filtered_contacts):
                         status_text.write(f"Sending email to {contact.email}...")
 
-                        # Replace placeholders with contact info, using defaults for None values
+                        # Replace placeholders with contact info
                         personalized_body = body.replace("[FIRST_NAME]", contact.first_name or "Valued Nurse")
                         personalized_body = personalized_body.replace("[NURSE_TYPE]", contact.nurse_type or "healthcare professional")
                         personalized_body = personalized_body.replace("[SPECIALTY]", contact.specialty or "your specialty")
 
-                        success = send_email(
+                        success, error_msg = send_email(
                             to_email=contact.email,
                             subject=subject,
                             body=personalized_body
@@ -422,16 +443,16 @@ elif page == "Email Blast":
                             success_count += 1
                         else:
                             error_count += 1
-                            error_messages.append(f"Failed to send email to {contact.email}")
+                            error_messages.append(f"Failed to send email to {contact.email}: {error_msg}")
 
                         progress_bar.progress((idx + 1) / len(filtered_contacts))
 
                     # Show final results
                     if success_count > 0:
-                        st.success(f"Successfully sent {success_count} emails")
+                        st.success(f"✅ Successfully sent {success_count} emails")
                     if error_count > 0:
                         with error_container:
-                            st.error(f"Failed to send {error_count} emails")
+                            st.error(f"❌ Failed to send {error_count} emails")
                             with st.expander("View Error Details"):
                                 for error in error_messages:
                                     st.write(error)

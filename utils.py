@@ -22,14 +22,85 @@ def check_email_configuration():
     required_settings = ['SMTP_SERVER', 'SMTP_PORT', 'SENDER_EMAIL', 'SENDER_PASSWORD']
     missing_settings = [setting for setting in required_settings if not os.getenv(setting)]
 
-    # For Exchange, suggest default settings if not configured
     if missing_settings:
-        if not os.getenv('SMTP_SERVER'):
-            logger.info("SMTP server not configured, default Exchange server would be outlook.office365.com")
-        if not os.getenv('SMTP_PORT'):
-            logger.info("SMTP port not configured, default Exchange port would be 587")
+        error_msg = "Missing email configuration: " + ", ".join(missing_settings)
+        logger.error(error_msg)
+        return False, error_msg
+    return True, None
 
-    return len(missing_settings) == 0
+def verify_smtp_connection():
+    """Test SMTP connection and authentication"""
+    try:
+        smtp_server = os.getenv('SMTP_SERVER', 'outlook.office365.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+
+        # Create SMTP session for testing
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+
+        # Try to login
+        server.login(sender_email, sender_password)
+        server.quit()
+        return True, None
+    except smtplib.SMTPAuthenticationError as e:
+        error_msg = "Authentication failed: Please verify your Office 365 credentials"
+        logger.error(f"{error_msg}: {str(e)}")
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"SMTP connection error: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
+
+def send_email(to_email, subject, body):
+    """Send email using SMTP"""
+    try:
+        # First verify configuration
+        config_ok, config_error = check_email_configuration()
+        if not config_ok:
+            return False, config_error
+
+        # Get email credentials
+        smtp_server = os.getenv('SMTP_SERVER', 'outlook.office365.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        sender_email = os.getenv('SENDER_EMAIL')
+        sender_password = os.getenv('SENDER_PASSWORD')
+
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        # Create SMTP session
+        logger.info(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+
+        try:
+            logger.info("Attempting SMTP login...")
+            server.login(sender_email, sender_password)
+            logger.info("SMTP login successful")
+
+            # Send email
+            server.send_message(msg)
+            server.quit()
+            logger.info(f"Email sent successfully to {to_email}")
+            return True, None
+        except smtplib.SMTPAuthenticationError as e:
+            error_msg = "Failed to authenticate with Office 365. Please verify your credentials."
+            logger.error(f"{error_msg}: {str(e)}")
+            return False, error_msg
+        except smtplib.SMTPException as e:
+            error_msg = f"SMTP error: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
+    except Exception as e:
+        error_msg = f"Error sending email: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg
 
 def process_file_upload(file_content, file_type, db_session, field_mapping):
     """Process uploaded CSV or Excel file and import contacts"""
@@ -95,55 +166,3 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
     except Exception as e:
         logger.error(f"File processing error: {str(e)}")
         return 0, 0, [f"File processing error: {str(e)}"]
-
-def send_email(to_email, subject, body):
-    """Send email using SMTP"""
-    try:
-        # Get email credentials from environment variables
-        smtp_server = os.getenv('SMTP_SERVER', 'outlook.office365.com')  # Default to Exchange Online
-        smtp_port = int(os.getenv('SMTP_PORT', '587'))  # Default Exchange port
-        sender_email = os.getenv('SENDER_EMAIL')
-        sender_password = os.getenv('SENDER_PASSWORD')
-
-        if not all([smtp_server, smtp_port, sender_email, sender_password]):
-            logger.error("Missing email configuration settings")
-            return False
-
-        # Log connection attempt (without sensitive info)
-        logger.info(f"Attempting to connect to SMTP server: {smtp_server}:{smtp_port}")
-
-        # Create message
-        msg = MIMEMultipart()
-        msg['From'] = sender_email
-        msg['To'] = to_email
-        msg['Subject'] = subject
-
-        # Add body
-        msg.attach(MIMEText(body, 'plain'))
-
-        # Create SMTP session
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-
-        logger.info("SMTP connection established, attempting login...")
-        try:
-            server.login(sender_email, sender_password)
-            logger.info("Login successful")
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error("Authentication failed. If using Exchange Online, ensure you're using the correct password/credentials")
-            raise
-
-        # Send email
-        server.send_message(msg)
-        server.quit()
-        logger.info(f"Email sent successfully to {to_email}")
-        return True
-    except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"Authentication error: {str(e)}. Please verify your Exchange credentials.")
-        return False
-    except smtplib.SMTPException as e:
-        logger.error(f"SMTP error: {str(e)}")
-        return False
-    except Exception as e:
-        logger.error(f"Error sending email: {str(e)}")
-        return False
