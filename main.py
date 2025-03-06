@@ -71,82 +71,85 @@ if page == "Import Contacts":
         csv_columns = df_sample.columns.tolist()
 
         # Create mapping UI
-        field_mapping = {}
-        col1, col2 = st.columns(2)
+        with st.form("field_mapping_form"):
+            field_mapping = {}
+            col1, col2 = st.columns(2)
 
-        with col1:
-            st.write("**Required Fields**")
-            field_mapping['first_name'] = st.selectbox(
-                "First Name (required)",
-                options=[''] + csv_columns
-            )
-            field_mapping['last_name'] = st.selectbox(
-                "Last Name (required)",
-                options=[''] + csv_columns
-            )
-            field_mapping['email'] = st.selectbox(
-                "Email (required)",
-                options=[''] + csv_columns
-            )
+            with col1:
+                st.write("**Required Fields**")
+                field_mapping['first_name'] = st.selectbox(
+                    "First Name (required)",
+                    options=[''] + csv_columns
+                )
+                field_mapping['last_name'] = st.selectbox(
+                    "Last Name (required)",
+                    options=[''] + csv_columns
+                )
+                field_mapping['email'] = st.selectbox(
+                    "Email (required)",
+                    options=[''] + csv_columns
+                )
 
-        with col2:
-            st.write("**Optional Fields**")
-            field_mapping['phone_number'] = st.selectbox(
-                "Phone Number",
-                options=[''] + csv_columns
-            )
-            field_mapping['nurse_type'] = st.selectbox(
-                "Nurse Type",
-                options=[''] + csv_columns
-            )
-            field_mapping['specialty'] = st.selectbox(
-                "Specialty",
-                options=[''] + csv_columns
-            )
-            field_mapping['certifications'] = st.selectbox(
-                "Certifications (comma-separated)",
-                options=[''] + csv_columns
-            )
-            field_mapping['zip_code'] = st.selectbox(
-                "ZIP Code",
-                options=[''] + csv_columns
-            )
-            field_mapping['notes'] = st.selectbox(
-                "Notes",
-                options=[''] + csv_columns
-            )
+            with col2:
+                st.write("**Optional Fields**")
+                field_mapping['phone_number'] = st.selectbox(
+                    "Phone Number",
+                    options=[''] + csv_columns
+                )
+                field_mapping['nurse_type'] = st.selectbox(
+                    "Nurse Type",
+                    options=[''] + csv_columns
+                )
+                field_mapping['specialty'] = st.selectbox(
+                    "Specialty",
+                    options=[''] + csv_columns
+                )
+                field_mapping['certifications'] = st.selectbox(
+                    "Certifications (comma-separated)",
+                    options=[''] + csv_columns
+                )
+                field_mapping['zip_code'] = st.selectbox(
+                    "ZIP Code",
+                    options=[''] + csv_columns
+                )
+                field_mapping['notes'] = st.selectbox(
+                    "Notes",
+                    options=[''] + csv_columns
+                )
 
-        # Remove empty mappings
-        field_mapping = {k: v for k, v in field_mapping.items() if v}
+            submitted = st.form_submit_button("Import Contacts")
 
-        if st.button("Import Contacts"):
-            if not all([
-                field_mapping.get('first_name'),
-                field_mapping.get('last_name'),
-                field_mapping.get('email')
-            ]):
-                st.error("Please map all required fields (First Name, Last Name, Email)")
-            else:
-                # Reset file pointer and read content
-                uploaded_file.seek(0)
-                file_content = uploaded_file.read()
+            if submitted:
+                # Remove empty mappings
+                field_mapping = {k: v for k, v in field_mapping.items() if v}
 
-                # Process import
-                with st.spinner("Importing contacts..."):
-                    success_count, error_count, error_messages = process_file_upload(
-                        file_content,
-                        file_type,
-                        st.session_state.db,
-                        field_mapping
-                    )
+                if not all([
+                    field_mapping.get('first_name'),
+                    field_mapping.get('last_name'),
+                    field_mapping.get('email')
+                ]):
+                    st.error("Please map all required fields (First Name, Last Name, Email)")
+                else:
+                    # Reset file pointer and read content
+                    uploaded_file.seek(0)
+                    file_content = uploaded_file.read()
 
-                # Show results
-                st.success(f"Successfully imported {success_count} contacts")
-                if error_count > 0:
-                    st.warning(f"Failed to import {error_count} contacts")
-                    with st.expander("View Error Details"):
-                        for error in error_messages:
-                            st.write(error)
+                    # Process import
+                    with st.spinner("Importing contacts..."):
+                        success_count, error_count, error_messages = process_file_upload(
+                            file_content,
+                            file_type,
+                            st.session_state.db,
+                            field_mapping
+                        )
+
+                    # Show results
+                    st.success(f"Successfully imported {success_count} contacts")
+                    if error_count > 0:
+                        st.warning(f"Failed to import {error_count} contacts")
+                        with st.expander("View Error Details"):
+                            for error in error_messages:
+                                st.write(error)
 
 elif page == "Contacts Management":
     st.header("Contact Management")
@@ -189,9 +192,10 @@ elif page == "Contacts Management":
                     st.session_state.db.commit()
                     st.success("Contact added successfully!")
 
-    # Contact list with filters
+    # Contact list and editing interface
     st.subheader("Contact List")
-    
+
+    # Edit contact form
     if st.session_state.editing_contact:
         st.subheader("Edit Contact")
         contact = st.session_state.db.query(Contact).get(st.session_state.editing_contact)
@@ -208,8 +212,9 @@ elif page == "Contacts Management":
                 with col2:
                     edited_specialty = st.selectbox("Specialty", NURSING_SPECIALTIES,
                         index=NURSING_SPECIALTIES.index(contact.specialty) if contact.specialty in NURSING_SPECIALTIES else 0)
+                    default_certs = [cert for cert in contact.certifications if cert in NURSING_CERTIFICATIONS] if contact.certifications else []
                     edited_certifications = st.multiselect("Certifications", NURSING_CERTIFICATIONS,
-                        default=contact.certifications if contact.certifications else [])
+                        default=default_certs)
                     edited_zip_code = st.text_input("ZIP Code", contact.zip_code or "")
                     edited_notes = st.text_area("Notes", contact.notes or "")
 
@@ -239,7 +244,7 @@ elif page == "Contacts Management":
                             st.session_state.editing_contact = None
                             st.rerun()
 
-
+    # Contact list with filters
     col1, col2, col3 = st.columns(3)
     with col1:
         search_term = st.text_input("Search contacts", "")
@@ -302,6 +307,7 @@ elif page == "Contacts Management":
                 with cols[5]:
                     if st.button("📝", key=f"edit_{row['Actions']}"):
                         st.session_state.editing_contact = row['Actions']
+                        st.rerun()
                 with cols[6]:
                     if st.button("🗑️", key=f"delete_{row['Actions']}"):
                         contact_to_delete = st.session_state.db.query(Contact).get(row['Actions'])
@@ -423,7 +429,7 @@ elif page == "Templates":
             template_name = st.text_input("Template Name")
             template_subject = st.text_input("Subject")
             template_body = st.text_area("Body", height=200,
-                help="Use [FIRST_NAME] and [SPECIALIZATION] as placeholders")
+                help="Use [FIRST_NAME], [NURSE_TYPE], and [SPECIALTY] as placeholders")
 
             if st.form_submit_button("Add Template"):
                 if not template_name or not template_subject or not template_body:
