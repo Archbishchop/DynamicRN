@@ -518,8 +518,15 @@ elif page == "Email Blast":
     if specialty_filter:
         query = query.filter(Contact.specialty.in_(specialty_filter))
     if certification_filter:
-        # Filter contacts that have any of the selected certifications
-        query = query.filter(Contact.certifications.overlap(certification_filter))
+        # Use ANY to check if any certification matches
+        from sqlalchemy import func
+        query = query.filter(
+            func.array_to_string(Contact.certifications, ',').like(
+                func.any(
+                    func.array([f'%{cert}%' for cert in certification_filter])
+                )
+            )
+        )
     if zip_filter:
         query = query.filter(Contact.zip_code == zip_filter)
 
