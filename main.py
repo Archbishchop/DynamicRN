@@ -492,7 +492,7 @@ elif page == "Email Blast":
 
     # Filter contacts
     st.subheader("Select Recipients")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         nurse_type_filter = st.multiselect(
             "Filter by nurse type",
@@ -504,6 +504,11 @@ elif page == "Email Blast":
             options=NURSING_SPECIALTIES
         )
     with col3:
+        certification_filter = st.multiselect(
+            "Filter by certification",
+            options=NURSING_CERTIFICATIONS
+        )
+    with col4:
         zip_filter = st.text_input("Filter by ZIP code")
 
     # Query contacts
@@ -512,6 +517,9 @@ elif page == "Email Blast":
         query = query.filter(Contact.nurse_type.in_(nurse_type_filter))
     if specialty_filter:
         query = query.filter(Contact.specialty.in_(specialty_filter))
+    if certification_filter:
+        # Filter contacts that have any of the selected certifications
+        query = query.filter(Contact.certifications.overlap(certification_filter))
     if zip_filter:
         query = query.filter(Contact.zip_code == zip_filter)
 
