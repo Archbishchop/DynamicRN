@@ -35,6 +35,8 @@ st.set_page_config(
 # Initialize session state
 if 'db' not in st.session_state:
     st.session_state.db = SessionLocal()
+if 'editing_contact' not in st.session_state:
+    st.session_state.editing_contact = None
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
@@ -189,6 +191,55 @@ elif page == "Contacts Management":
 
     # Contact list with filters
     st.subheader("Contact List")
+    
+    if st.session_state.editing_contact:
+        st.subheader("Edit Contact")
+        contact = st.session_state.db.query(Contact).get(st.session_state.editing_contact)
+        if contact:
+            with st.form("edit_contact_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    edited_first_name = st.text_input("First Name", contact.first_name)
+                    edited_last_name = st.text_input("Last Name", contact.last_name)
+                    edited_email = st.text_input("Email", contact.email)
+                    edited_phone_number = st.text_input("Phone Number", contact.phone_number or "")
+                    edited_nurse_type = st.selectbox("Nurse Type", NURSE_TYPES, 
+                        index=NURSE_TYPES.index(contact.nurse_type) if contact.nurse_type in NURSE_TYPES else 0)
+                with col2:
+                    edited_specialty = st.selectbox("Specialty", NURSING_SPECIALTIES,
+                        index=NURSING_SPECIALTIES.index(contact.specialty) if contact.specialty in NURSING_SPECIALTIES else 0)
+                    edited_certifications = st.multiselect("Certifications", NURSING_CERTIFICATIONS,
+                        default=contact.certifications if contact.certifications else [])
+                    edited_zip_code = st.text_input("ZIP Code", contact.zip_code or "")
+                    edited_notes = st.text_area("Notes", contact.notes or "")
+
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.form_submit_button("Cancel"):
+                        st.session_state.editing_contact = None
+                        st.rerun()
+                with col2:
+                    if st.form_submit_button("Save Changes"):
+                        if not edited_first_name or not edited_last_name or not edited_email:
+                            st.error("Please fill in all required fields.")
+                        elif not validate_email(edited_email):
+                            st.error("Please enter a valid email address.")
+                        else:
+                            contact.first_name = edited_first_name
+                            contact.last_name = edited_last_name
+                            contact.email = edited_email
+                            contact.phone_number = edited_phone_number
+                            contact.nurse_type = edited_nurse_type
+                            contact.specialty = edited_specialty
+                            contact.certifications = edited_certifications
+                            contact.zip_code = edited_zip_code
+                            contact.notes = edited_notes
+                            st.session_state.db.commit()
+                            st.success("Contact updated successfully!")
+                            st.session_state.editing_contact = None
+                            st.rerun()
+
+
     col1, col2, col3 = st.columns(3)
     with col1:
         search_term = st.text_input("Search contacts", "")
