@@ -4,7 +4,7 @@ from models import (
     Contact, EmailTemplate, SessionLocal, init_db,
     NURSE_TYPES, NURSING_SPECIALTIES, NURSING_CERTIFICATIONS
 )
-from utils import validate_email, send_email
+from utils import validate_email, send_email, process_csv_upload
 import os
 from datetime import datetime
 
@@ -38,12 +38,107 @@ if 'db' not in st.session_state:
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Contacts Management", "Email Blast", "Templates"])
+page = st.sidebar.radio("Go to", ["Contacts Management", "Import Contacts", "Email Blast", "Templates"])
 
 # Main header
 st.title("Nurse Connect")
 
-if page == "Contacts Management":
+if page == "Import Contacts":
+    st.header("Import Contacts")
+
+    # File upload
+    uploaded_file = st.file_uploader("Upload CSV File", type=['csv'])
+
+    if uploaded_file:
+        # Read and display sample data
+        df_sample = pd.read_csv(uploaded_file, nrows=5)
+        st.write("Preview of first 5 rows:")
+        st.write(df_sample)
+
+        # Field mapping
+        st.subheader("Map CSV Columns to Contact Fields")
+        st.info("Select which CSV columns correspond to each contact field")
+
+        csv_columns = df_sample.columns.tolist()
+
+        # Create mapping UI
+        field_mapping = {}
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("**Required Fields**")
+            field_mapping['first_name'] = st.selectbox(
+                "First Name (required)",
+                options=[''] + csv_columns
+            )
+            field_mapping['last_name'] = st.selectbox(
+                "Last Name (required)",
+                options=[''] + csv_columns
+            )
+            field_mapping['email'] = st.selectbox(
+                "Email (required)",
+                options=[''] + csv_columns
+            )
+
+        with col2:
+            st.write("**Optional Fields**")
+            field_mapping['phone_number'] = st.selectbox(
+                "Phone Number",
+                options=[''] + csv_columns
+            )
+            field_mapping['nurse_type'] = st.selectbox(
+                "Nurse Type",
+                options=[''] + csv_columns
+            )
+            field_mapping['specialty'] = st.selectbox(
+                "Specialty",
+                options=[''] + csv_columns
+            )
+            field_mapping['certifications'] = st.selectbox(
+                "Certifications (comma-separated)",
+                options=[''] + csv_columns
+            )
+            field_mapping['zip_code'] = st.selectbox(
+                "ZIP Code",
+                options=[''] + csv_columns
+            )
+            field_mapping['notes'] = st.selectbox(
+                "Notes",
+                options=[''] + csv_columns
+            )
+
+        # Remove empty mappings
+        field_mapping = {k: v for k, v in field_mapping.items() if v}
+
+        if st.button("Import Contacts"):
+            if not all([
+                field_mapping.get('first_name'),
+                field_mapping.get('last_name'),
+                field_mapping.get('email')
+            ]):
+                st.error("Please map all required fields (First Name, Last Name, Email)")
+            else:
+                # Reset file pointer and read content
+                uploaded_file.seek(0)
+                csv_content = uploaded_file.read().decode('utf-8')
+
+                # Process import
+                with st.spinner("Importing contacts..."):
+                    success_count, error_count, error_messages = process_csv_upload(
+                        csv_content,
+                        st.session_state.db,
+                        field_mapping
+                    )
+
+                # Show results
+                st.success(f"Successfully imported {success_count} contacts")
+                if error_count > 0:
+                    st.warning(f"Failed to import {error_count} contacts")
+                    with st.expander("View Error Details"):
+                        for error in error_messages:
+                            st.write(error)
+
+elif page == "Contacts Management":
     st.header("Contact Management")
 
     # Add new contact form

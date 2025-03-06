@@ -5,6 +5,8 @@ import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import logging
+from io import StringIO
+import csv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +30,77 @@ def validate_email(email):
     """Validate email format"""
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
+
+def process_csv_upload(csv_content, db_session, field_mapping):
+    """Process uploaded CSV file and import contacts
+
+    Args:
+        csv_content: String content of the CSV file
+        db_session: SQLAlchemy session
+        field_mapping: Dict mapping CSV columns to database fields
+
+    Returns:
+        tuple: (success_count, error_count, error_messages)
+    """
+    try:
+        # Read CSV content
+        df = pd.read_csv(StringIO(csv_content))
+
+        success_count = 0
+        error_count = 0
+        error_messages = []
+
+        # Process each row
+        for index, row in df.iterrows():
+            try:
+                # Map fields according to user's selection
+                contact_data = {}
+                for db_field, csv_field in field_mapping.items():
+                    if csv_field in row:
+                        contact_data[db_field] = row[csv_field]
+
+                # Validate required fields
+                if not all([
+                    contact_data.get('first_name'),
+                    contact_data.get('last_name'),
+                    contact_data.get('email')
+                ]):
+                    raise ValueError("Missing required fields")
+
+                # Validate email
+                if not validate_email(contact_data['email']):
+                    raise ValueError("Invalid email format")
+
+                # Convert certifications to list if present
+                if 'certifications' in contact_data:
+                    if isinstance(contact_data['certifications'], str):
+                        contact_data['certifications'] = [
+                            cert.strip() 
+                            for cert in contact_data['certifications'].split(',')
+                            if cert.strip()
+                        ]
+                    else:
+                        contact_data['certifications'] = []
+
+                # Create new contact
+                from models import Contact
+                new_contact = Contact(**contact_data)
+                db_session.add(new_contact)
+                success_count += 1
+
+            except Exception as e:
+                error_count += 1
+                error_messages.append(f"Row {index + 2}: {str(e)}")
+
+        # Commit all successful imports
+        if success_count > 0:
+            db_session.commit()
+
+        return success_count, error_count, error_messages
+
+    except Exception as e:
+        logger.error(f"CSV processing error: {str(e)}")
+        return 0, 0, [f"File processing error: {str(e)}"]
 
 def send_email(to_email, subject, body):
     """Send email using SMTP"""
