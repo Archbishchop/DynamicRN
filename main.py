@@ -346,20 +346,19 @@ elif page == "Email Blast":
     config_ok, config_error = check_email_configuration()
     if not config_ok:
         st.error(f"""
-        Email configuration error: Authentication failed: Please verify your Office 365 credentials
+        Email configuration error: Office 365 authentication failed. If you use Multi-Factor Authentication (MFA):
+        1. You need to create an App Password
+        2. Regular password won't work with MFA
+        3. Go to Office 365 Account Settings → Security → App Passwords
+        """)
 
-        To fix this:
-        1. Verify your Office 365 email and password
-        2. If you use Multi-Factor Authentication (MFA):
-           - You MUST create an App Password
-           - Regular password won't work with MFA
-           - Go to Office 365 Account Settings → Security → App Passwords
-        3. Make sure your organization allows SMTP authentication
-
-        Current settings:
-        - SMTP Server: outlook.office365.com
-        - SMTP Port: 587
-        - Email: {os.getenv('SENDER_EMAIL')}
+        st.info("""
+        How to get an App Password:
+        1. Sign in to your Office 365 account
+        2. Go to Account Settings
+        3. Select Security → App Passwords
+        4. Click "Create New App Password"
+        5. Use the generated password below
         """)
 
         col1, col2 = st.columns([1, 3])
@@ -372,27 +371,21 @@ elif page == "Email Blast":
                     else:
                         st.error(f"❌ Connection failed: {connection_error}")
         with col2:
-            def ask_secrets(secret_keys, user_message):
-                for key in secret_keys:
-                    new_value = st.text_input(f"Enter new value for {key}:", type="password")
-                    if new_value:
-                        os.environ[key] = new_value
-                        st.success(f"{key} updated successfully!")
-                    else:
-                        st.warning(f"No value provided for {key}.")
-
             if st.button("Update Email Settings"):
+                # Ask for new credentials
+                st.write("Enter your Office 365 credentials:")
+                st.write("Note: If you use MFA, enter your App Password instead of regular password")
+
                 # Use ask_secrets to securely update credentials
                 ask_secrets(
                     secret_keys=["SENDER_EMAIL", "SENDER_PASSWORD"],
                     user_message="""
-                    Please provide your Office 365 credentials:
+                    Please provide your Office 365 email and App Password:
 
-                    If you use Multi-Factor Authentication (MFA):
-                    1. Go to Office 365 Account Settings
-                    2. Select Security → App Passwords
-                    3. Create a new App Password
-                    4. Use that App Password here instead of your regular password
+                    Important: If you use Multi-Factor Authentication (MFA):
+                    - Do NOT use your regular Office 365 password
+                    - You MUST create and use an App Password
+                    - Go to Office 365 Account Settings → Security → App Passwords
                     """
                 )
         st.stop()
@@ -545,3 +538,12 @@ st.markdown("Nurse Connect")
 # Cleanup database session
 if hasattr(st.session_state, 'db'):
     st.session_state.db.close()
+
+def ask_secrets(secret_keys, user_message):
+    for key in secret_keys:
+        new_value = st.text_input(f"Enter new value for {key}:", type="password")
+        if new_value:
+            os.environ[key] = new_value
+            st.success(f"{key} updated successfully!")
+        else:
+            st.warning(f"No value provided for {key}.")
