@@ -278,13 +278,24 @@ elif page == "Contacts Management":
     if contacts:
         contact_data = []
         for contact in contacts:
+            # Extract acronyms from certifications
+            cert_acronyms = []
+            if contact.certifications:
+                for cert in contact.certifications:
+                    # Extract text within parentheses if it exists, otherwise use the full name
+                    if '(' in cert:
+                        acronym = cert.split('(')[0].strip()
+                        cert_acronyms.append(acronym)
+                    else:
+                        cert_acronyms.append(cert)
+
             contact_data.append({
                 "Name": f"{contact.first_name} {contact.last_name}",
                 "Email": contact.email,
                 "Phone": contact.phone_number or "N/A",
                 "Type": contact.nurse_type,
                 "Specialty": contact.specialty,
-                "Certifications": ", ".join(contact.certifications) if contact.certifications else "N/A",
+                "Certifications": ", ".join(cert_acronyms) if cert_acronyms else "N/A",
                 "Actions": contact.id
             })
 
