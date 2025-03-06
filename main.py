@@ -5,6 +5,12 @@ from utils import validate_email, send_email
 import os
 from datetime import datetime
 
+def check_email_configuration():
+    """Check if all required email settings are configured"""
+    required_settings = ['SMTP_SERVER', 'SMTP_PORT', 'SENDER_EMAIL', 'SENDER_PASSWORD']
+    missing_settings = [setting for setting in required_settings if not os.getenv(setting)]
+    return len(missing_settings) == 0
+
 # Initialize database
 init_db()
 
@@ -101,6 +107,19 @@ if page == "Contacts Management":
 
 elif page == "Email Blast":
     st.header("Send Email Blast")
+
+    # Check email configuration
+    if not check_email_configuration():
+        st.error("""
+        Email configuration is incomplete. Please ensure you have:
+        1. SMTP Server address
+        2. SMTP Port number
+        3. Sender Email (your work email)
+        4. Password or App Password
+
+        Contact your IT department to get the correct SMTP settings for your work email.
+        """)
+        st.stop()
 
     # Filter contacts
     st.subheader("Select Recipients")
