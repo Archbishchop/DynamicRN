@@ -321,21 +321,47 @@ elif page == "Email Blast":
             if len(filtered_contacts) == 0:
                 st.error("Please select at least one recipient.")
             else:
-                progress_bar = st.progress(0)
-                for idx, contact in enumerate(filtered_contacts):
-                    # Replace placeholders with contact info, using defaults for None values
-                    personalized_body = body.replace("[FIRST_NAME]", contact.first_name or "Valued Nurse")
-                    personalized_body = personalized_body.replace("[NURSE_TYPE]", contact.nurse_type or "healthcare professional")
-                    personalized_body = personalized_body.replace("[SPECIALTY]", contact.specialty or "your specialty")
+                progress_container = st.container()
+                with progress_container:
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    error_container = st.container()
 
-                    success = send_email(
-                        to_email=contact.email,
-                        subject=subject,
-                        body=personalized_body
-                    )
-                    if success:
+                    success_count = 0
+                    error_count = 0
+                    error_messages = []
+
+                    for idx, contact in enumerate(filtered_contacts):
+                        status_text.write(f"Sending email to {contact.email}...")
+
+                        # Replace placeholders with contact info, using defaults for None values
+                        personalized_body = body.replace("[FIRST_NAME]", contact.first_name or "Valued Nurse")
+                        personalized_body = personalized_body.replace("[NURSE_TYPE]", contact.nurse_type or "healthcare professional")
+                        personalized_body = personalized_body.replace("[SPECIALTY]", contact.specialty or "your specialty")
+
+                        success = send_email(
+                            to_email=contact.email,
+                            subject=subject,
+                            body=personalized_body
+                        )
+
+                        if success:
+                            success_count += 1
+                        else:
+                            error_count += 1
+                            error_messages.append(f"Failed to send email to {contact.email}")
+
                         progress_bar.progress((idx + 1) / len(filtered_contacts))
-                st.success(f"Email blast sent to {len(filtered_contacts)} recipients!")
+
+                    # Show final results
+                    if success_count > 0:
+                        st.success(f"Successfully sent {success_count} emails")
+                    if error_count > 0:
+                        with error_container:
+                            st.error(f"Failed to send {error_count} emails")
+                            with st.expander("View Error Details"):
+                                for error in error_messages:
+                                    st.write(error)
 
 elif page == "Templates":
     st.header("Email Templates")

@@ -12,20 +12,6 @@ import csv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def load_contacts():
-    """Load contacts from CSV file or create new dataframe if file doesn't exist"""
-    try:
-        return pd.read_csv('data/contacts.csv')
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=['name', 'email', 'specialization', 'zip_code', 'notes'])
-        save_contacts(df)
-        return df
-
-def save_contacts(df):
-    """Save contacts to CSV file"""
-    os.makedirs('data', exist_ok=True)
-    df.to_csv('data/contacts.csv', index=False)
-
 def validate_email(email):
     """Validate email format"""
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
