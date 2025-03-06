@@ -39,7 +39,6 @@ page = st.sidebar.radio("Go to", ["Contacts Management", "Email Blast", "Templat
 
 # Main header
 st.title("Nurse Connect")
-st.subheader("Healthcare Staffing Made Simple")
 
 if page == "Contacts Management":
     st.header("Contact Management")
@@ -102,22 +101,46 @@ if page == "Contacts Management":
 
     contacts = query.all()
 
-    # Display contacts with edit/delete buttons
-    for contact in contacts:
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col1:
-            st.write(f"**{contact.first_name} {contact.last_name}** ({contact.specialization})")
-            st.write(f"Email: {contact.email} | Phone: {contact.phone_number} | ZIP: {contact.zip_code}")
-            if contact.notes:
-                st.write(f"Notes: {contact.notes}")
-        with col2:
-            if st.button("Edit", key=f"edit_{contact.id}"):
-                st.session_state.editing_contact = contact.id
-        with col3:
-            if st.button("Delete", key=f"delete_{contact.id}"):
-                st.session_state.db.delete(contact)
-                st.session_state.db.commit()
-                st.experimental_rerun()
+    # Display contacts in a table format
+    if contacts:
+        contact_data = []
+        for contact in contacts:
+            contact_data.append({
+                "Name": f"{contact.first_name} {contact.last_name}",
+                "Email": contact.email,
+                "Phone": contact.phone_number or "N/A",
+                "Specialization": contact.specialization,
+                "ZIP": contact.zip_code,
+                "Actions": contact.id
+            })
+
+        df = pd.DataFrame(contact_data)
+
+        # Display the table
+        for idx, row in df.iterrows():
+            with st.container():
+                cols = st.columns([3, 2, 2, 2, 1, 1])
+                with cols[0]:
+                    st.write(f"**{row['Name']}**")
+                with cols[1]:
+                    st.write(row['Email'])
+                with cols[2]:
+                    st.write(row['Phone'])
+                with cols[3]:
+                    st.write(row['Specialization'])
+                with cols[4]:
+                    if st.button("📝", key=f"edit_{row['Actions']}"):
+                        st.session_state.editing_contact = row['Actions']
+                with cols[5]:
+                    if st.button("🗑️", key=f"delete_{row['Actions']}"):
+                        contact_to_delete = st.session_state.db.query(Contact).get(row['Actions'])
+                        if contact_to_delete:
+                            st.session_state.db.delete(contact_to_delete)
+                            st.session_state.db.commit()
+                            st.experimental_rerun()
+                st.divider()
+    else:
+        st.info("No contacts found.")
 
 elif page == "Email Blast":
     st.header("Send Email Blast")
@@ -187,15 +210,57 @@ elif page == "Email Blast":
 elif page == "Templates":
     st.header("Email Templates")
 
+    # Add new template form
+    with st.expander("Add New Template", expanded=False):
+        with st.form("new_template_form"):
+            template_name = st.text_input("Template Name")
+            template_subject = st.text_input("Subject")
+            template_body = st.text_area("Body", height=200,
+                help="Use [FIRST_NAME] and [SPECIALIZATION] as placeholders")
+
+            if st.form_submit_button("Add Template"):
+                if not template_name or not template_subject or not template_body:
+                    st.error("Please fill in all fields")
+                else:
+                    new_template = EmailTemplate(
+                        name=template_name,
+                        subject=template_subject,
+                        body=template_body
+                    )
+                    st.session_state.db.add(new_template)
+                    st.session_state.db.commit()
+                    st.success("Template added successfully!")
+                    st.experimental_rerun()
+
+    # List and manage existing templates
     templates = st.session_state.db.query(EmailTemplate).all()
     for template in templates:
-        with st.expander(template.name):
-            st.write("**Subject:**", template.subject)
-            st.write("**Body:**", template.body)
+        if template.name != "Network Update":  # Skip the Network Update template
+            with st.expander(f"📧 {template.name}"):
+                with st.form(f"edit_template_{template.id}"):
+                    edited_name = st.text_input("Template Name", template.name)
+                    edited_subject = st.text_input("Subject", template.subject)
+                    edited_body = st.text_area("Body", template.body, height=200)
+
+                    col1, col2 = st.columns([1, 4])
+                    with col1:
+                        if st.form_submit_button("Delete Template"):
+                            st.session_state.db.delete(template)
+                            st.session_state.db.commit()
+                            st.success("Template deleted!")
+                            st.experimental_rerun()
+                    with col2:
+                        if st.form_submit_button("Save Changes"):
+                            template.name = edited_name
+                            template.subject = edited_subject
+                            template.body = edited_body
+                            st.session_state.db.commit()
+                            st.success("Changes saved!")
+                            st.experimental_rerun()
 
 # Footer
 st.markdown("---")
-st.markdown("Nurse Connect - Streamlining Healthcare Recruitment")
+st.markdown("Nurse Connect")
 
 # Cleanup database session
 if hasattr(st.session_state, 'db'):
