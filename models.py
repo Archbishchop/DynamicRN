@@ -32,8 +32,10 @@ class Contact(Base):
     __tablename__ = "contacts"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
+    first_name = Column(String(50), nullable=False)
+    last_name = Column(String(50), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
+    phone_number = Column(String(20))
     specialization = Column(String(50))
     zip_code = Column(String(10))
     notes = Column(Text)
@@ -49,6 +51,26 @@ class EmailTemplate(Base):
     body = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# List of nurse specializations
+NURSE_SPECIALIZATIONS = [
+    "Registered Nurse (RN)",
+    "Licensed Practical Nurse (LPN)",
+    "Critical Care/ICU",
+    "Emergency Room",
+    "Operating Room",
+    "Pediatric",
+    "Neonatal",
+    "Medical-Surgical",
+    "Oncology",
+    "Labor and Delivery",
+    "Post-Anesthesia Care Unit (PACU)",
+    "Telemetry",
+    "Psychiatric/Mental Health",
+    "Home Health",
+    "Case Management",
+    "Other"
+]
 
 def init_db():
     """Initialize database and create tables"""
@@ -78,25 +100,25 @@ def init_db():
                 templates = [
                     EmailTemplate(
                         name="Job Opening",
-                        subject="Exciting Healthcare Opportunity in Your Area",
-                        body="""Dear [NAME],
+                        subject="Exciting Nursing Opportunity in Your Area",
+                        body="""Dear [FIRST_NAME],
 
-I hope this email finds you well. I wanted to reach out about an exciting healthcare opportunity that matches your expertise.
+I hope this email finds you well. I wanted to reach out about an exciting nursing opportunity that matches your expertise in [SPECIALIZATION].
 
-We are currently seeking experienced healthcare professionals for a prestigious medical facility in your area.
+We are currently seeking experienced nurses for a prestigious healthcare facility in your area.
 
 Would you be interested in learning more about this opportunity? If so, please reply to this email or call me directly.
 
 Best regards,
 [Your Name]
-Healthcare Recruiter"""
+Nurse Recruiter"""
                     ),
                     EmailTemplate(
                         name="Follow Up",
-                        subject="Following Up - Healthcare Position",
-                        body="""Dear [NAME],
+                        subject="Following Up - Nursing Position",
+                        body="""Dear [FIRST_NAME],
 
-I wanted to follow up regarding the healthcare position we discussed previously. Have you had a chance to consider the opportunity?
+I wanted to follow up regarding the nursing position we discussed previously. Have you had a chance to consider the opportunity?
 
 I'm available to answer any questions you might have about the role or the facility.
 
@@ -104,22 +126,22 @@ Looking forward to hearing from you.
 
 Best regards,
 [Your Name]
-Healthcare Recruiter"""
+Nurse Recruiter"""
                     ),
                     EmailTemplate(
                         name="Network Update",
-                        subject="Healthcare Industry Updates and Opportunities",
-                        body="""Dear [NAME],
+                        subject="Nursing Industry Updates and Opportunities",
+                        body="""Dear [FIRST_NAME],
 
-I hope you're doing well. I'm reaching out to share some recent updates in the healthcare industry and new opportunities that have become available.
+I hope you're doing well. I'm reaching out to share some recent updates in the nursing field and new opportunities that have become available.
 
-As a professional in [specialization], I thought these might be of interest to you.
+As a professional in [SPECIALIZATION], I thought these might be of interest to you.
 
 Would you like to schedule a brief call to discuss these opportunities?
 
 Best regards,
 [Your Name]
-Healthcare Recruiter"""
+Nurse Recruiter"""
                     )
                 ]
                 db.add_all(templates)

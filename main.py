@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from models import Contact, EmailTemplate, SessionLocal, init_db
+from models import Contact, EmailTemplate, SessionLocal, init_db, NURSE_SPECIALIZATIONS
 from utils import validate_email, send_email
 import os
 from datetime import datetime
@@ -24,8 +24,8 @@ init_db()
 
 # Page configuration
 st.set_page_config(
-    page_title="Healthcare Recruiter Email System",
-    page_icon="💊",
+    page_title="Nurse Connect",
+    page_icon="👩‍⚕️",
     layout="wide"
 )
 
@@ -38,7 +38,8 @@ st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Contacts Management", "Email Blast", "Templates"])
 
 # Main header
-st.title("Healthcare Recruiter Email System")
+st.title("Nurse Connect")
+st.subheader("Healthcare Staffing Made Simple")
 
 if page == "Contacts Management":
     st.header("Contact Management")
@@ -48,24 +49,27 @@ if page == "Contacts Management":
         with st.form("new_contact_form"):
             col1, col2 = st.columns(2)
             with col1:
-                name = st.text_input("Full Name")
+                first_name = st.text_input("First Name")
+                last_name = st.text_input("Last Name")
                 email = st.text_input("Email")
-                specialization = st.selectbox("Specialization", 
-                    ["Nurse", "Doctor", "Surgeon", "Specialist", "Administrator", "Other"])
+                phone_number = st.text_input("Phone Number")
             with col2:
+                specialization = st.selectbox("Specialization", NURSE_SPECIALIZATIONS)
                 zip_code = st.text_input("ZIP Code")
                 notes = st.text_area("Notes")
 
             submitted = st.form_submit_button("Add Contact")
             if submitted:
-                if not name or not email or not zip_code:
+                if not first_name or not last_name or not email:
                     st.error("Please fill in all required fields.")
                 elif not validate_email(email):
                     st.error("Please enter a valid email address.")
                 else:
                     new_contact = Contact(
-                        name=name,
+                        first_name=first_name,
+                        last_name=last_name,
                         email=email,
+                        phone_number=phone_number,
                         specialization=specialization,
                         zip_code=zip_code,
                         notes=notes
@@ -80,17 +84,17 @@ if page == "Contacts Management":
     with col1:
         search_term = st.text_input("Search contacts", "")
     with col2:
-        specializations = [spec[0] for spec in st.session_state.db.query(Contact.specialization).distinct()]
         specialization_filter = st.multiselect(
             "Filter by specialization",
-            options=specializations
+            options=NURSE_SPECIALIZATIONS
         )
 
     # Query contacts
     query = st.session_state.db.query(Contact)
     if search_term:
         query = query.filter(
-            (Contact.name.ilike(f"%{search_term}%")) |
+            (Contact.first_name.ilike(f"%{search_term}%")) |
+            (Contact.last_name.ilike(f"%{search_term}%")) |
             (Contact.email.ilike(f"%{search_term}%"))
         )
     if specialization_filter:
@@ -102,8 +106,10 @@ if page == "Contacts Management":
     for contact in contacts:
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
-            st.write(f"**{contact.name}** ({contact.specialization})")
-            st.write(f"Email: {contact.email} | ZIP: {contact.zip_code}")
+            st.write(f"**{contact.first_name} {contact.last_name}** ({contact.specialization})")
+            st.write(f"Email: {contact.email} | Phone: {contact.phone_number} | ZIP: {contact.zip_code}")
+            if contact.notes:
+                st.write(f"Notes: {contact.notes}")
         with col2:
             if st.button("Edit", key=f"edit_{contact.id}"):
                 st.session_state.editing_contact = contact.id
@@ -123,7 +129,7 @@ elif page == "Email Blast":
 
         1. SMTP Server: outlook.office365.com
         2. SMTP Port: 587
-        3. Sender Email: Your work email (e.g., rhanzel@atchealthcare.com)
+        3. Sender Email: Your work email
         4. Password: Your Office 365 password
 
         If these settings don't work, please contact your IT department as they may have custom settings.
@@ -134,10 +140,9 @@ elif page == "Email Blast":
     st.subheader("Select Recipients")
     col1, col2 = st.columns(2)
     with col1:
-        specializations = [spec[0] for spec in st.session_state.db.query(Contact.specialization).distinct()]
         specialization_filter = st.multiselect(
             "Filter by specialization",
-            options=specializations
+            options=NURSE_SPECIALIZATIONS
         )
     with col2:
         zip_filter = st.text_input("Filter by ZIP code")
@@ -168,7 +173,8 @@ elif page == "Email Blast":
             else:
                 progress_bar = st.progress(0)
                 for idx, contact in enumerate(filtered_contacts):
-                    personalized_body = body.replace("[NAME]", contact.name)
+                    personalized_body = body.replace("[FIRST_NAME]", contact.first_name)
+                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialization)
                     success = send_email(
                         to_email=contact.email,
                         subject=subject,
@@ -189,7 +195,7 @@ elif page == "Templates":
 
 # Footer
 st.markdown("---")
-st.markdown("Healthcare Recruiter Email System - Made with ❤️ by Your Team")
+st.markdown("Nurse Connect - Streamlining Healthcare Recruitment")
 
 # Cleanup database session
 if hasattr(st.session_state, 'db'):
