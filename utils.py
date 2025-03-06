@@ -142,8 +142,10 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
                 contact_data = {}
                 for db_field, file_field in field_mapping.items():
                     if file_field in row:
-                        contact_data[db_field] = row[file_field]
-                        logger.info(f"Mapped {file_field} to {db_field}: {row[file_field]}")
+                        # Convert NaN values to None
+                        value = row[file_field]
+                        contact_data[db_field] = None if pd.isna(value) else str(value).strip()
+                        logger.info(f"Mapped {file_field} to {db_field}: {contact_data[db_field]}")
 
                 # Validate required fields
                 if not all([
@@ -151,14 +153,14 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
                     contact_data.get('last_name'),
                     contact_data.get('email')
                 ]):
-                    raise ValueError(f"Missing required fields. Data: {contact_data}")
+                    raise ValueError(f"Missing required fields: {contact_data}")
 
                 # Validate email
-                if not validate_email(contact_data['email']):
+                if not validate_email(contact_data.get('email', '')):
                     raise ValueError(f"Invalid email format: {contact_data['email']}")
 
                 # Convert certifications to list if present
-                if 'certifications' in contact_data:
+                if 'certifications' in contact_data and contact_data['certifications']:
                     if isinstance(contact_data['certifications'], str):
                         contact_data['certifications'] = [
                             cert.strip() 
@@ -184,7 +186,11 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
         # Commit all successful imports
         if success_count > 0:
             logger.info(f"Committing {success_count} contacts to database")
-            db_session.commit()
+            try:
+                db_session.commit()
+            except Exception as e:
+                logger.error(f"Database commit error: {str(e)}")
+                return 0, success_count, [f"Failed to save contacts: {str(e)}"]
 
         logger.info(f"Import complete. Successes: {success_count}, Errors: {error_count}")
         return success_count, error_count, error_messages
