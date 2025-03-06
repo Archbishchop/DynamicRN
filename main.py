@@ -316,8 +316,11 @@ elif page == "Email Blast":
             else:
                 progress_bar = st.progress(0)
                 for idx, contact in enumerate(filtered_contacts):
-                    personalized_body = body.replace("[FIRST_NAME]", contact.first_name)
-                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialty)
+                    # Replace placeholders with contact info, using defaults for None values
+                    personalized_body = body.replace("[FIRST_NAME]", contact.first_name or "Valued Nurse")
+                    personalized_body = personalized_body.replace("[NURSE_TYPE]", contact.nurse_type or "healthcare professional")
+                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialty or "your specialty")
+
                     success = send_email(
                         to_email=contact.email,
                         subject=subject,
