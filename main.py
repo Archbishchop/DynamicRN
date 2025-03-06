@@ -267,22 +267,24 @@ elif page == "Contacts Management":
         with col2:
             if len(st.session_state.selected_contacts) > 0:
                 if st.button(f"🗑️ Delete Selected ({len(st.session_state.selected_contacts)})", type="secondary"):
-                    st.warning(f"Are you sure you want to delete {len(st.session_state.selected_contacts)} contacts?")
-                    col1, col2 = st.columns([1, 4])
-                    with col1:
-                        if st.button("✓ Confirm Delete"):
-                            # Delete selected contacts
-                            for contact_id in st.session_state.selected_contacts:
-                                contact = st.session_state.db.query(Contact).get(contact_id)
-                                if contact:
-                                    st.session_state.db.delete(contact)
-                            st.session_state.db.commit()
-                            st.session_state.selected_contacts = set()
-                            st.success("Selected contacts deleted successfully!")
-                            st.rerun()
-                    with col2:
-                        if st.button("✗ Cancel"):
-                            st.rerun()
+                    delete_confirmation = st.warning(f"Are you sure you want to delete {len(st.session_state.selected_contacts)} contacts?", key="delete_confirmation")
+                    if delete_confirmation:
+                        col1, col2 = st.columns([1, 4])
+                        with col1:
+                            if st.button("✓ Confirm Delete", key="confirm_delete"):
+                                # Delete selected contacts
+                                for contact_id in st.session_state.selected_contacts:
+                                    contact = st.session_state.db.query(Contact).get(contact_id)
+                                    if contact:
+                                        st.session_state.db.delete(contact)
+                                st.session_state.db.commit()
+                                st.session_state.selected_contacts = set()
+                                st.success("Selected contacts deleted successfully!")
+                                st.rerun()
+                        with col2:
+                            if st.button("✗ Cancel", key="cancel_delete"):
+                                st.rerun()
+
 
         st.divider()
 
