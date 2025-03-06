@@ -9,6 +9,14 @@ def check_email_configuration():
     """Check if all required email settings are configured"""
     required_settings = ['SMTP_SERVER', 'SMTP_PORT', 'SENDER_EMAIL', 'SENDER_PASSWORD']
     missing_settings = [setting for setting in required_settings if not os.getenv(setting)]
+
+    # For Exchange, suggest default settings if not configured
+    if missing_settings:
+        if not os.getenv('SMTP_SERVER'):
+            st.info("For Microsoft Exchange, try using 'outlook.office365.com' as your SMTP server")
+        if not os.getenv('SMTP_PORT'):
+            st.info("For Microsoft Exchange, the default SMTP port is 587")
+
     return len(missing_settings) == 0
 
 # Initialize database
@@ -111,13 +119,14 @@ elif page == "Email Blast":
     # Check email configuration
     if not check_email_configuration():
         st.error("""
-        Email configuration is incomplete. Please ensure you have:
-        1. SMTP Server address
-        2. SMTP Port number
-        3. Sender Email (your work email)
-        4. Password or App Password
+        Email configuration is incomplete. For Microsoft Exchange (Office 365) email:
 
-        Contact your IT department to get the correct SMTP settings for your work email.
+        1. SMTP Server: outlook.office365.com
+        2. SMTP Port: 587
+        3. Sender Email: Your work email (e.g., rhanzel@atchealthcare.com)
+        4. Password: Your Office 365 password
+
+        If these settings don't work, please contact your IT department as they may have custom settings.
         """)
         st.stop()
 
