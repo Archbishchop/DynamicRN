@@ -26,7 +26,6 @@ def check_email_configuration():
 
     return len(missing_settings) == 0, error_message
 
-
 # Initialize database
 init_db()
 
@@ -374,7 +373,6 @@ elif page == "Email Blast":
                         st.error(f"❌ Connection failed: {connection_error}")
         with col2:
             def ask_secrets(secret_keys, user_message):
-                #Implementation for securely updating credentials
                 for key in secret_keys:
                     new_value = st.text_input(f"Enter new value for {key}:", type="password")
                     if new_value:
@@ -382,7 +380,6 @@ elif page == "Email Blast":
                         st.success(f"{key} updated successfully!")
                     else:
                         st.warning(f"No value provided for {key}.")
-
 
             if st.button("Update Email Settings"):
                 # Use ask_secrets to securely update credentials
