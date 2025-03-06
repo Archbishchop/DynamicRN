@@ -281,19 +281,26 @@ elif page == "Email Blast":
 
     # Filter contacts
     st.subheader("Select Recipients")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        specialization_filter = st.multiselect(
-            "Filter by specialization",
-            options=NURSING_SPECIALTIES
+        nurse_type_filter = st.multiselect(
+            "Filter by nurse type",
+            options=NURSE_TYPES
         )
     with col2:
+        specialty_filter = st.multiselect(
+            "Filter by specialty",
+            options=NURSING_SPECIALTIES
+        )
+    with col3:
         zip_filter = st.text_input("Filter by ZIP code")
 
     # Query contacts
     query = st.session_state.db.query(Contact)
-    if specialization_filter:
-        query = query.filter(Contact.specialty.in_(specialization_filter))
+    if nurse_type_filter:
+        query = query.filter(Contact.nurse_type.in_(nurse_type_filter))
+    if specialty_filter:
+        query = query.filter(Contact.specialty.in_(specialty_filter))
     if zip_filter:
         query = query.filter(Contact.zip_code == zip_filter)
 
