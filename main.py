@@ -59,101 +59,121 @@ if page == "Import Contacts":
         # Determine file type
         file_type = 'csv' if uploaded_file.name.endswith('.csv') else 'excel'
 
-        # Read and display sample data
-        if file_type == 'csv':
-            df_sample = pd.read_csv(uploaded_file, nrows=5)
-        else:
-            df_sample = pd.read_excel(uploaded_file, nrows=5)
+        try:
+            # Read and display sample data
+            if file_type == 'csv':
+                df_sample = pd.read_csv(uploaded_file, nrows=5)
+            else:
+                df_sample = pd.read_excel(uploaded_file, nrows=5)
 
-        st.write("Preview of first 5 rows:")
-        st.write(df_sample)
+            st.write("Preview of first 5 rows:")
+            st.write(df_sample)
 
-        # Field mapping
-        st.subheader("Map File Columns to Contact Fields")
-        st.info("Select which columns from your file correspond to each contact field")
+            # Display available columns
+            st.write("Available columns in file:", ", ".join(df_sample.columns.tolist()))
 
-        csv_columns = df_sample.columns.tolist()
+            # Field mapping
+            st.subheader("Map File Columns to Contact Fields")
+            st.info("Select which columns from your file correspond to each contact field")
 
-        # Create mapping UI
-        with st.form("field_mapping_form"):
-            field_mapping = {}
-            col1, col2 = st.columns(2)
+            csv_columns = df_sample.columns.tolist()
 
-            with col1:
-                st.write("**Required Fields**")
-                field_mapping['first_name'] = st.selectbox(
-                    "First Name (required)",
-                    options=[''] + csv_columns
-                )
-                field_mapping['last_name'] = st.selectbox(
-                    "Last Name (required)",
-                    options=[''] + csv_columns
-                )
-                field_mapping['email'] = st.selectbox(
-                    "Email (required)",
-                    options=[''] + csv_columns
-                )
+            # Create mapping UI
+            with st.form("field_mapping_form"):
+                col1, col2 = st.columns(2)
 
-            with col2:
-                st.write("**Optional Fields**")
-                field_mapping['phone_number'] = st.selectbox(
-                    "Phone Number",
-                    options=[''] + csv_columns
-                )
-                field_mapping['nurse_type'] = st.selectbox(
-                    "Nurse Type",
-                    options=[''] + csv_columns
-                )
-                field_mapping['specialty'] = st.selectbox(
-                    "Specialty",
-                    options=[''] + csv_columns
-                )
-                field_mapping['certifications'] = st.selectbox(
-                    "Certifications (comma-separated)",
-                    options=[''] + csv_columns
-                )
-                field_mapping['zip_code'] = st.selectbox(
-                    "ZIP Code",
-                    options=[''] + csv_columns
-                )
-                field_mapping['notes'] = st.selectbox(
-                    "Notes",
-                    options=[''] + csv_columns
-                )
+                with col1:
+                    st.write("**Required Fields**")
+                    field_mapping = {}
+                    field_mapping['first_name'] = st.selectbox(
+                        "First Name (required)",
+                        options=[''] + csv_columns,
+                        help="Select the column containing first names"
+                    )
+                    field_mapping['last_name'] = st.selectbox(
+                        "Last Name (required)",
+                        options=[''] + csv_columns,
+                        help="Select the column containing last names"
+                    )
+                    field_mapping['email'] = st.selectbox(
+                        "Email (required)",
+                        options=[''] + csv_columns,
+                        help="Select the column containing email addresses"
+                    )
 
-            submitted = st.form_submit_button("Import Contacts")
+                with col2:
+                    st.write("**Optional Fields**")
+                    field_mapping['phone_number'] = st.selectbox(
+                        "Phone Number",
+                        options=[''] + csv_columns
+                    )
+                    field_mapping['nurse_type'] = st.selectbox(
+                        "Nurse Type",
+                        options=[''] + csv_columns
+                    )
+                    field_mapping['specialty'] = st.selectbox(
+                        "Specialty",
+                        options=[''] + csv_columns
+                    )
+                    field_mapping['certifications'] = st.selectbox(
+                        "Certifications (comma-separated)",
+                        options=[''] + csv_columns
+                    )
+                    field_mapping['zip_code'] = st.selectbox(
+                        "ZIP Code",
+                        options=[''] + csv_columns
+                    )
+                    field_mapping['notes'] = st.selectbox(
+                        "Notes",
+                        options=[''] + csv_columns
+                    )
 
-            if submitted:
-                # Remove empty mappings
-                field_mapping = {k: v for k, v in field_mapping.items() if v}
+                submitted = st.form_submit_button("Import Contacts")
 
-                if not all([
-                    field_mapping.get('first_name'),
-                    field_mapping.get('last_name'),
-                    field_mapping.get('email')
-                ]):
-                    st.error("Please map all required fields (First Name, Last Name, Email)")
-                else:
-                    # Reset file pointer and read content
-                    uploaded_file.seek(0)
-                    file_content = uploaded_file.read()
+                if submitted:
+                    # Remove empty mappings
+                    field_mapping = {k: v for k, v in field_mapping.items() if v}
 
-                    # Process import
-                    with st.spinner("Importing contacts..."):
-                        success_count, error_count, error_messages = process_file_upload(
-                            file_content,
-                            file_type,
-                            st.session_state.db,
-                            field_mapping
-                        )
+                    if not all([
+                        field_mapping.get('first_name'),
+                        field_mapping.get('last_name'),
+                        field_mapping.get('email')
+                    ]):
+                        st.error("Please map all required fields (First Name, Last Name, Email)")
+                    else:
+                        # Show selected mappings
+                        st.write("Selected field mappings:")
+                        for field, column in field_mapping.items():
+                            st.write(f"- {field}: {column}")
 
-                    # Show results
-                    st.success(f"Successfully imported {success_count} contacts")
-                    if error_count > 0:
-                        st.warning(f"Failed to import {error_count} contacts")
-                        with st.expander("View Error Details"):
-                            for error in error_messages:
-                                st.write(error)
+                        # Reset file pointer and read content
+                        uploaded_file.seek(0)
+                        file_content = uploaded_file.read()
+
+                        # Process import
+                        with st.spinner("Importing contacts..."):
+                            success_count, error_count, error_messages = process_file_upload(
+                                file_content,
+                                file_type,
+                                st.session_state.db,
+                                field_mapping
+                            )
+
+                        # Show results
+                        if success_count > 0:
+                            st.success(f"Successfully imported {success_count} contacts")
+                        else:
+                            st.warning("No contacts were imported. Please check the error details below.")
+
+                        if error_count > 0:
+                            st.error(f"Failed to import {error_count} contacts")
+                            with st.expander("View Error Details"):
+                                for error in error_messages:
+                                    st.write(error)
+
+        except Exception as e:
+            st.error(f"Error reading file: {str(e)}")
+            st.write("Please ensure your file is properly formatted and try again.")
 
 elif page == "Contacts Management":
     st.header("Contact Management")

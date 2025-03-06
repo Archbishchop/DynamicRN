@@ -120,11 +120,16 @@ def send_email(to_email, subject, body):
 def process_file_upload(file_content, file_type, db_session, field_mapping):
     """Process uploaded CSV or Excel file and import contacts"""
     try:
+        logger.info(f"Starting file import process. File type: {file_type}")
+        logger.info(f"Field mapping: {field_mapping}")
+
         # Read file content based on type
         if file_type == 'csv':
             df = pd.read_csv(StringIO(file_content.decode('utf-8')))
         else:  # Excel
             df = pd.read_excel(BytesIO(file_content))
+
+        logger.info(f"File read successfully. Found {len(df)} rows")
 
         success_count = 0
         error_count = 0
@@ -138,6 +143,7 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
                 for db_field, file_field in field_mapping.items():
                     if file_field in row:
                         contact_data[db_field] = row[file_field]
+                        logger.info(f"Mapped {file_field} to {db_field}: {row[file_field]}")
 
                 # Validate required fields
                 if not all([
@@ -145,11 +151,11 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
                     contact_data.get('last_name'),
                     contact_data.get('email')
                 ]):
-                    raise ValueError("Missing required fields")
+                    raise ValueError(f"Missing required fields. Data: {contact_data}")
 
                 # Validate email
                 if not validate_email(contact_data['email']):
-                    raise ValueError("Invalid email format")
+                    raise ValueError(f"Invalid email format: {contact_data['email']}")
 
                 # Convert certifications to list if present
                 if 'certifications' in contact_data:
@@ -167,15 +173,20 @@ def process_file_upload(file_content, file_type, db_session, field_mapping):
                 new_contact = Contact(**contact_data)
                 db_session.add(new_contact)
                 success_count += 1
+                logger.info(f"Successfully processed row {index + 2}")
 
             except Exception as e:
                 error_count += 1
-                error_messages.append(f"Row {index + 2}: {str(e)}")
+                error_msg = f"Row {index + 2}: {str(e)}"
+                logger.error(error_msg)
+                error_messages.append(error_msg)
 
         # Commit all successful imports
         if success_count > 0:
+            logger.info(f"Committing {success_count} contacts to database")
             db_session.commit()
 
+        logger.info(f"Import complete. Successes: {success_count}, Errors: {error_count}")
         return success_count, error_count, error_messages
 
     except Exception as e:
