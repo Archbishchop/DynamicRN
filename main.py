@@ -518,13 +518,12 @@ elif page == "Email Blast":
     if specialty_filter:
         query = query.filter(Contact.specialty.in_(specialty_filter))
     if certification_filter:
-        # Use ANY to check if any certification matches
-        from sqlalchemy import func
+        # Use PostgreSQL array overlap operator &&
+        from sqlalchemy import cast, String
+        from sqlalchemy.dialects.postgresql import ARRAY
         query = query.filter(
-            func.array_to_string(Contact.certifications, ',').like(
-                func.any(
-                    func.array([f'%{cert}%' for cert in certification_filter])
-                )
+            Contact.certifications.cast(ARRAY(String)).overlap(
+                cast(certification_filter, ARRAY(String))
             )
         )
     if zip_filter:
