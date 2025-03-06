@@ -255,8 +255,8 @@ elif page == "Contacts Management":
 
     # Display contacts in a table format with selection
     if contacts:
-        # Select All checkbox
-        col1, col2 = st.columns([1, 5])
+        # Select All and Bulk Delete section
+        col1, col2, col3 = st.columns([1, 2, 3])
         with col1:
             if st.checkbox("Select All", key="select_all"):
                 st.session_state.selected_contacts = set(contact.id for contact in contacts)
@@ -264,38 +264,36 @@ elif page == "Contacts Management":
                 st.session_state.selected_contacts = set()
 
         # Show bulk delete button if contacts are selected
-        if st.session_state.selected_contacts:
-            with col2:
-                if st.button("🗑️ Delete Selected", type="secondary"):
-                    if st.session_state.selected_contacts:
-                        # Confirm deletion
-                        st.warning(f"Are you sure you want to delete {len(st.session_state.selected_contacts)} contacts?")
-                        col1, col2 = st.columns([1, 4])
-                        with col1:
-                            if st.button("✓ Confirm Delete"):
-                                # Delete selected contacts
-                                for contact_id in st.session_state.selected_contacts:
-                                    contact = st.session_state.db.query(Contact).get(contact_id)
-                                    if contact:
-                                        st.session_state.db.delete(contact)
-                                st.session_state.db.commit()
-                                st.session_state.selected_contacts = set()
-                                st.success("Selected contacts deleted successfully!")
-                                st.rerun()
-                        with col2:
-                            if st.button("✗ Cancel"):
-                                st.rerun()
+        with col2:
+            if len(st.session_state.selected_contacts) > 0:
+                if st.button(f"🗑️ Delete Selected ({len(st.session_state.selected_contacts)})", type="secondary"):
+                    st.warning(f"Are you sure you want to delete {len(st.session_state.selected_contacts)} contacts?")
+                    col1, col2 = st.columns([1, 4])
+                    with col1:
+                        if st.button("✓ Confirm Delete"):
+                            # Delete selected contacts
+                            for contact_id in st.session_state.selected_contacts:
+                                contact = st.session_state.db.query(Contact).get(contact_id)
+                                if contact:
+                                    st.session_state.db.delete(contact)
+                            st.session_state.db.commit()
+                            st.session_state.selected_contacts = set()
+                            st.success("Selected contacts deleted successfully!")
+                            st.rerun()
+                    with col2:
+                        if st.button("✗ Cancel"):
+                            st.rerun()
 
         st.divider()
 
         # Display contacts with checkboxes
         for contact in contacts:
             with st.container():
-                cols = st.columns([0.5, 2.5, 2, 2, 2, 2, 1])
+                cols = st.columns([0.5, 2.5, 2, 2, 2, 2, 0.5, 0.5])
 
                 # Selection checkbox
                 with cols[0]:
-                    if st.checkbox("", key=f"select_{contact.id}", 
+                    if st.checkbox("", key=f"select_{contact.id}",
                                  value=contact.id in st.session_state.selected_contacts):
                         st.session_state.selected_contacts.add(contact.id)
                     else:
@@ -323,10 +321,21 @@ elif page == "Contacts Management":
                             else:
                                 cert_acronyms.append(cert)
                     st.write(", ".join(cert_acronyms) if cert_acronyms else "N/A")
+
+                # Action buttons
                 with cols[6]:
                     if st.button("📝", key=f"edit_{contact.id}"):
                         st.session_state.editing_contact = contact.id
                         st.rerun()
+                with cols[7]:
+                    if st.button("🗑️", key=f"delete_{contact.id}"):
+                        # Delete individual contact
+                        contact_to_delete = st.session_state.db.query(Contact).get(contact.id)
+                        if contact_to_delete:
+                            st.session_state.db.delete(contact_to_delete)
+                            st.session_state.db.commit()
+                            st.success(f"Deleted contact: {contact.first_name} {contact.last_name}")
+                            st.rerun()
                 st.divider()
     else:
         st.info("No contacts found.")
