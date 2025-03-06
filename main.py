@@ -342,27 +342,40 @@ elif page == "Contacts Management":
 elif page == "Email Blast":
     st.header("Send Email Blast")
 
-    # Test email configuration first
-    config_ok, config_error = check_email_configuration()
-    if not config_ok:
-        st.error(f"""
-        Email configuration error: Office 365 authentication failed. If you use Multi-Factor Authentication (MFA):
-        1. You need to create an App Password
-        2. Regular password won't work with MFA
-        3. Go to Office 365 Account Settings → Security → App Passwords
-        """)
+    # Email Configuration Section
+    with st.expander("✉️ Email Settings", expanded=True):
+        st.subheader("Office 365 Email Configuration")
 
-        st.info("""
-        How to get an App Password:
-        1. Sign in to your Office 365 account
-        2. Go to Account Settings
-        3. Select Security → App Passwords
-        4. Click "Create New App Password"
-        5. Use the generated password below
-        """)
-
-        col1, col2 = st.columns([1, 3])
+        col1, col2 = st.columns(2)
         with col1:
+            st.info("""
+            Configure your Office 365 email:
+            1. Enter your work email
+            2. If you use MFA, use an App Password:
+               - Go to Office 365 Account Settings
+               - Security → App Passwords
+               - Create a new App Password
+            """)
+
+            # Email configuration form
+            with st.form("email_settings"):
+                email = st.text_input("Office 365 Email")
+                password = st.text_input("Password or App Password", type="password")
+
+                if st.form_submit_button("Save Email Settings"):
+                    if email and password:
+                        os.environ['SENDER_EMAIL'] = email
+                        os.environ['SENDER_PASSWORD'] = password
+                        st.success("✅ Email settings updated!")
+                    else:
+                        st.error("Please enter both email and password.")
+
+        with col2:
+            st.write("Current Configuration:")
+            st.write(f"- SMTP Server: outlook.office365.com")
+            st.write(f"- SMTP Port: 587")
+            st.write(f"- Email: {os.getenv('SENDER_EMAIL', 'Not configured')}")
+
             if st.button("Test Connection"):
                 with st.spinner("Testing Office 365 connection..."):
                     connection_ok, connection_error = verify_smtp_connection()
@@ -370,24 +383,11 @@ elif page == "Email Blast":
                         st.success("✅ Successfully connected to Office 365!")
                     else:
                         st.error(f"❌ Connection failed: {connection_error}")
-        with col2:
-            if st.button("Update Email Settings"):
-                # Ask for new credentials
-                st.write("Enter your Office 365 credentials:")
-                st.write("Note: If you use MFA, enter your App Password instead of regular password")
 
-                # Use ask_secrets to securely update credentials
-                ask_secrets(
-                    secret_keys=["SENDER_EMAIL", "SENDER_PASSWORD"],
-                    user_message="""
-                    Please provide your Office 365 email and App Password:
-
-                    Important: If you use Multi-Factor Authentication (MFA):
-                    - Do NOT use your regular Office 365 password
-                    - You MUST create and use an App Password
-                    - Go to Office 365 Account Settings → Security → App Passwords
-                    """
-                )
+    # Check if email is configured before allowing email blast
+    config_ok, config_error = check_email_configuration()
+    if not config_ok:
+        st.error("Please configure your email settings above before sending email blasts.")
         st.stop()
 
     # Filter contacts
