@@ -207,7 +207,7 @@ elif page == "Contacts Management":
                     edited_last_name = st.text_input("Last Name", contact.last_name)
                     edited_email = st.text_input("Email", contact.email)
                     edited_phone_number = st.text_input("Phone Number", contact.phone_number or "")
-                    edited_nurse_type = st.selectbox("Nurse Type", NURSE_TYPES, 
+                    edited_nurse_type = st.selectbox("Nurse Type", NURSE_TYPES,
                         index=NURSE_TYPES.index(contact.nurse_type) if contact.nurse_type in NURSE_TYPES else 0)
                 with col2:
                     edited_specialty = st.selectbox("Specialty", NURSING_SPECIALTIES,

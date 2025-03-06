@@ -17,18 +17,22 @@ def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
 
+def check_email_configuration():
+    """Check if all required email settings are configured"""
+    required_settings = ['SMTP_SERVER', 'SMTP_PORT', 'SENDER_EMAIL', 'SENDER_PASSWORD']
+    missing_settings = [setting for setting in required_settings if not os.getenv(setting)]
+
+    # For Exchange, suggest default settings if not configured
+    if missing_settings:
+        if not os.getenv('SMTP_SERVER'):
+            logger.info("SMTP server not configured, default Exchange server would be outlook.office365.com")
+        if not os.getenv('SMTP_PORT'):
+            logger.info("SMTP port not configured, default Exchange port would be 587")
+
+    return len(missing_settings) == 0
+
 def process_file_upload(file_content, file_type, db_session, field_mapping):
-    """Process uploaded CSV or Excel file and import contacts
-
-    Args:
-        file_content: Binary content of the file
-        file_type: String indicating file type ('csv' or 'excel')
-        db_session: SQLAlchemy session
-        field_mapping: Dict mapping file columns to database fields
-
-    Returns:
-        tuple: (success_count, error_count, error_messages)
-    """
+    """Process uploaded CSV or Excel file and import contacts"""
     try:
         # Read file content based on type
         if file_type == 'csv':
