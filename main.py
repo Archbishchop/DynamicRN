@@ -289,11 +289,16 @@ elif page == "Contacts Management":
                     else:
                         cert_acronyms.append(cert)
 
+            # Extract nurse type acronym
+            nurse_type_display = contact.nurse_type
+            if contact.nurse_type and '(' in contact.nurse_type:
+                nurse_type_display = contact.nurse_type.split('(')[1].rstrip(')')
+
             contact_data.append({
                 "Name": f"{contact.first_name} {contact.last_name}",
                 "Email": contact.email,
                 "Phone": contact.phone_number or "N/A",
-                "Type": contact.nurse_type,
+                "Type": nurse_type_display,
                 "Specialty": contact.specialty,
                 "Certifications": ", ".join(cert_acronyms) if cert_acronyms else "N/A",
                 "Actions": contact.id
