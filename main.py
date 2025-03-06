@@ -349,18 +349,23 @@ elif page == "Email Blast":
         col1, col2 = st.columns(2)
         with col1:
             st.info("""
-            Configure your Office 365 email:
-            1. Enter your work email
-            2. If you use MFA, use an App Password:
+            Configure your email account:
+            1. Enter your work email (Office 365 or other email)
+            2. For Office 365 with MFA, use an App Password:
                - Go to Office 365 Account Settings
                - Security → App Passwords
                - Create a new App Password
+
+            Note: Each user can configure their own email account.
+            Settings are per-session and will need to be re-entered 
+            when you restart the application.
             """)
 
             # Email configuration form
             with st.form("email_settings"):
-                email = st.text_input("Office 365 Email")
-                password = st.text_input("Password or App Password", type="password")
+                email = st.text_input("Email Address")
+                password = st.text_input("Password or App Password", type="password",
+                    help="For Office 365 with MFA, use an App Password")
 
                 if st.form_submit_button("Save Email Settings"):
                     if email and password:
@@ -377,10 +382,10 @@ elif page == "Email Blast":
             st.write(f"- Email: {os.getenv('SENDER_EMAIL', 'Not configured')}")
 
             if st.button("Test Connection"):
-                with st.spinner("Testing Office 365 connection..."):
+                with st.spinner("Testing email connection..."):
                     connection_ok, connection_error = verify_smtp_connection()
                     if connection_ok:
-                        st.success("✅ Successfully connected to Office 365!")
+                        st.success("✅ Successfully connected!")
                     else:
                         st.error(f"❌ Connection failed: {connection_error}")
 
