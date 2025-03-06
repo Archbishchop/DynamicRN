@@ -137,7 +137,7 @@ if page == "Contacts Management":
                         if contact_to_delete:
                             st.session_state.db.delete(contact_to_delete)
                             st.session_state.db.commit()
-                            st.experimental_rerun()
+                            st.rerun()
                 st.divider()
     else:
         st.info("No contacts found.")
@@ -230,7 +230,7 @@ elif page == "Templates":
                     st.session_state.db.add(new_template)
                     st.session_state.db.commit()
                     st.success("Template added successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
 
     # List and manage existing templates
     templates = st.session_state.db.query(EmailTemplate).all()
@@ -248,7 +248,7 @@ elif page == "Templates":
                             st.session_state.db.delete(template)
                             st.session_state.db.commit()
                             st.success("Template deleted!")
-                            st.experimental_rerun()
+                            st.rerun()
                     with col2:
                         if st.form_submit_button("Save Changes"):
                             template.name = edited_name
@@ -256,7 +256,7 @@ elif page == "Templates":
                             template.body = edited_body
                             st.session_state.db.commit()
                             st.success("Changes saved!")
-                            st.experimental_rerun()
+                            st.rerun()
 
 # Footer
 st.markdown("---")
