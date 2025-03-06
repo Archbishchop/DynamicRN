@@ -47,7 +47,7 @@ st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Contacts Management", "Import Contacts", "Email Blast", "Templates"])
 
 # Main header
-st.title("Nurse Connect")
+st.markdown("<h1 style='text-align: center;'>Nurse Connect</h1>", unsafe_allow_html=True)
 
 if page == "Import Contacts":
     st.header("Import Contacts")
@@ -176,7 +176,7 @@ if page == "Import Contacts":
             st.write("Please ensure your file is properly formatted and try again.")
 
 elif page == "Contacts Management":
-    st.header("Contact Management")
+    st.markdown("<h2 style='text-align: center;'>Contact Management</h2>", unsafe_allow_html=True)
 
     # Add new contact form
     with st.expander("Add New Contact"):
@@ -219,20 +219,25 @@ elif page == "Contacts Management":
     # Contact list and editing interface
     st.subheader("Contact List")
 
-    # Filters section
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    # Filters section in 2x2 grid
+    st.write("### Filter Contacts")
+    row1_col1, row1_col2 = st.columns(2)
+    row2_col1, row2_col2 = st.columns(2)
+
+    with row1_col1:
         search_term = st.text_input("Search contacts", "")
-    with col2:
+    with row1_col2:
         nurse_type_filter = st.multiselect(
             "Filter by nurse type",
             options=NURSE_TYPES
         )
-    with col3:
+    with row2_col1:
         specialty_filter = st.multiselect(
             "Filter by specialty",
             options=NURSING_SPECIALTIES
         )
+    with row2_col2:
+        zip_filter = st.text_input("Filter by ZIP code")
 
     # Query contacts with filters
     query = st.session_state.db.query(Contact)
@@ -332,7 +337,7 @@ elif page == "Contacts Management":
                 # Selection checkbox
                 with cols[0]:
                     checkbox_state = st.checkbox(
-                        "", 
+                        "",
                         key=f"select_{contact.id}",
                         value=contact.id in st.session_state.selected_contacts,
                         label_visibility="collapsed",
