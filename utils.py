@@ -29,27 +29,42 @@ def check_email_configuration():
     return True, None
 
 def verify_smtp_connection():
-    """Test SMTP connection and authentication"""
+    """Test SMTP connection and authentication with Office 365"""
     try:
         smtp_server = os.getenv('SMTP_SERVER', 'outlook.office365.com')
         smtp_port = int(os.getenv('SMTP_PORT', '587'))
         sender_email = os.getenv('SENDER_EMAIL')
         sender_password = os.getenv('SENDER_PASSWORD')
 
+        if not all([smtp_server, smtp_port, sender_email, sender_password]):
+            return False, "Missing email configuration settings"
+
+        logger.info(f"Testing connection to {smtp_server}:{smtp_port}")
+
         # Create SMTP session for testing
         server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
 
         # Try to login
-        server.login(sender_email, sender_password)
-        server.quit()
-        return True, None
-    except smtplib.SMTPAuthenticationError as e:
-        error_msg = "Authentication failed: Please verify your Office 365 credentials"
-        logger.error(f"{error_msg}: {str(e)}")
-        return False, error_msg
+        try:
+            server.login(sender_email, sender_password)
+            server.quit()
+            logger.info("Office 365 authentication successful")
+            return True, None
+        except smtplib.SMTPAuthenticationError as e:
+            if "535" in str(e):  # Office 365 specific auth error
+                error_msg = """
+                Office 365 authentication failed. If you use Multi-Factor Authentication (MFA):
+                1. You need to create an App Password
+                2. Regular password won't work with MFA
+                3. Go to Office 365 Account Settings → Security → App Passwords
+                """
+            else:
+                error_msg = "Authentication failed: Please verify your Office 365 credentials"
+            logger.error(f"{error_msg}: {str(e)}")
+            return False, error_msg
     except Exception as e:
-        error_msg = f"SMTP connection error: {str(e)}"
+        error_msg = f"Connection error: {str(e)}"
         logger.error(error_msg)
         return False, error_msg
 
