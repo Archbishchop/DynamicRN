@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
-from models import Contact, EmailTemplate, SessionLocal, init_db, NURSE_SPECIALIZATIONS
+from models import (
+    Contact, EmailTemplate, SessionLocal, init_db,
+    NURSE_TYPES, NURSING_SPECIALTIES, NURSING_CERTIFICATIONS
+)
 from utils import validate_email, send_email
 import os
 from datetime import datetime
@@ -52,8 +55,10 @@ if page == "Contacts Management":
                 last_name = st.text_input("Last Name")
                 email = st.text_input("Email")
                 phone_number = st.text_input("Phone Number")
+                nurse_type = st.selectbox("Nurse Type", NURSE_TYPES)
             with col2:
-                specialization = st.selectbox("Specialization", NURSE_SPECIALIZATIONS)
+                specialty = st.selectbox("Specialty", NURSING_SPECIALTIES)
+                certifications = st.multiselect("Certifications", NURSING_CERTIFICATIONS)
                 zip_code = st.text_input("ZIP Code")
                 notes = st.text_area("Notes")
 
@@ -69,7 +74,9 @@ if page == "Contacts Management":
                         last_name=last_name,
                         email=email,
                         phone_number=phone_number,
-                        specialization=specialization,
+                        nurse_type=nurse_type,
+                        specialty=specialty,
+                        certifications=certifications,
                         zip_code=zip_code,
                         notes=notes
                     )
@@ -79,13 +86,18 @@ if page == "Contacts Management":
 
     # Contact list with filters
     st.subheader("Contact List")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         search_term = st.text_input("Search contacts", "")
     with col2:
-        specialization_filter = st.multiselect(
-            "Filter by specialization",
-            options=NURSE_SPECIALIZATIONS
+        nurse_type_filter = st.multiselect(
+            "Filter by nurse type",
+            options=NURSE_TYPES
+        )
+    with col3:
+        specialty_filter = st.multiselect(
+            "Filter by specialty",
+            options=NURSING_SPECIALTIES
         )
 
     # Query contacts
@@ -96,8 +108,10 @@ if page == "Contacts Management":
             (Contact.last_name.ilike(f"%{search_term}%")) |
             (Contact.email.ilike(f"%{search_term}%"))
         )
-    if specialization_filter:
-        query = query.filter(Contact.specialization.in_(specialization_filter))
+    if nurse_type_filter:
+        query = query.filter(Contact.nurse_type.in_(nurse_type_filter))
+    if specialty_filter:
+        query = query.filter(Contact.specialty.in_(specialty_filter))
 
     contacts = query.all()
 
@@ -109,8 +123,9 @@ if page == "Contacts Management":
                 "Name": f"{contact.first_name} {contact.last_name}",
                 "Email": contact.email,
                 "Phone": contact.phone_number or "N/A",
-                "Specialization": contact.specialization,
-                "ZIP": contact.zip_code,
+                "Type": contact.nurse_type,
+                "Specialty": contact.specialty,
+                "Certifications": ", ".join(contact.certifications) if contact.certifications else "N/A",
                 "Actions": contact.id
             })
 
@@ -119,7 +134,7 @@ if page == "Contacts Management":
         # Display the table
         for idx, row in df.iterrows():
             with st.container():
-                cols = st.columns([3, 2, 2, 2, 1, 1])
+                cols = st.columns([3, 2, 2, 2, 2, 1, 1])
                 with cols[0]:
                     st.write(f"**{row['Name']}**")
                 with cols[1]:
@@ -127,11 +142,13 @@ if page == "Contacts Management":
                 with cols[2]:
                     st.write(row['Phone'])
                 with cols[3]:
-                    st.write(row['Specialization'])
+                    st.write(f"{row['Type']} - {row['Specialty']}")
                 with cols[4]:
+                    st.write(row['Certifications'])
+                with cols[5]:
                     if st.button("📝", key=f"edit_{row['Actions']}"):
                         st.session_state.editing_contact = row['Actions']
-                with cols[5]:
+                with cols[6]:
                     if st.button("🗑️", key=f"delete_{row['Actions']}"):
                         contact_to_delete = st.session_state.db.query(Contact).get(row['Actions'])
                         if contact_to_delete:
@@ -165,7 +182,7 @@ elif page == "Email Blast":
     with col1:
         specialization_filter = st.multiselect(
             "Filter by specialization",
-            options=NURSE_SPECIALIZATIONS
+            options=NURSING_SPECIALTIES
         )
     with col2:
         zip_filter = st.text_input("Filter by ZIP code")
@@ -173,7 +190,7 @@ elif page == "Email Blast":
     # Query contacts
     query = st.session_state.db.query(Contact)
     if specialization_filter:
-        query = query.filter(Contact.specialization.in_(specialization_filter))
+        query = query.filter(Contact.specialty.in_(specialization_filter)) #Corrected field name
     if zip_filter:
         query = query.filter(Contact.zip_code == zip_filter)
 
@@ -197,7 +214,7 @@ elif page == "Email Blast":
                 progress_bar = st.progress(0)
                 for idx, contact in enumerate(filtered_contacts):
                     personalized_body = body.replace("[FIRST_NAME]", contact.first_name)
-                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialization)
+                    personalized_body = personalized_body.replace("[SPECIALIZATION]", contact.specialty) #Corrected field name
                     success = send_email(
                         to_email=contact.email,
                         subject=subject,

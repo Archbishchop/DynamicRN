@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import inspect
@@ -36,7 +36,9 @@ class Contact(Base):
     last_name = Column(String(50), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     phone_number = Column(String(20))
-    specialization = Column(String(50))
+    nurse_type = Column(String(50))  # RN, LPN, etc.
+    specialty = Column(String(50))    # OR, ER, etc.
+    certifications = Column(ARRAY(String))  # Array of certifications
     zip_code = Column(String(10))
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -52,23 +54,43 @@ class EmailTemplate(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-# List of nurse specializations
-NURSE_SPECIALIZATIONS = [
+# List of nurse types
+NURSE_TYPES = [
     "Registered Nurse (RN)",
     "Licensed Practical Nurse (LPN)",
-    "Critical Care/ICU",
-    "Emergency Room",
+    "Certified Nursing Assistant (CNA)",
+    "Nurse Practitioner (NP)",
+    "Clinical Nurse Specialist (CNS)",
+    "Other"
+]
+
+# List of nursing specialties
+NURSING_SPECIALTIES = [
     "Operating Room",
-    "Pediatric",
-    "Neonatal",
-    "Medical-Surgical",
-    "Oncology",
+    "Emergency Room",
+    "Intensive Care Unit",
+    "Pediatrics",
     "Labor and Delivery",
-    "Post-Anesthesia Care Unit (PACU)",
+    "Medical-Surgical",
     "Telemetry",
+    "Oncology",
+    "Post-Anesthesia Care Unit (PACU)",
     "Psychiatric/Mental Health",
     "Home Health",
     "Case Management",
+    "Other"
+]
+
+# List of common nursing certifications
+NURSING_CERTIFICATIONS = [
+    "BLS (Basic Life Support)",
+    "ACLS (Advanced Cardiac Life Support)",
+    "PALS (Pediatric Advanced Life Support)",
+    "NRP (Neonatal Resuscitation Program)",
+    "TNCC (Trauma Nursing Core Course)",
+    "CCRN (Critical Care RN)",
+    "CEN (Certified Emergency Nurse)",
+    "CNOR (Certified Nurse Operating Room)",
     "Other"
 ]
 
@@ -103,7 +125,7 @@ def init_db():
                         subject="Exciting Nursing Opportunity in Your Area",
                         body="""Dear [FIRST_NAME],
 
-I hope this email finds you well. I wanted to reach out about an exciting nursing opportunity that matches your expertise in [SPECIALIZATION].
+I hope this email finds you well. I wanted to reach out about an exciting nursing opportunity that matches your expertise as a [NURSE_TYPE] in [SPECIALTY].
 
 We are currently seeking experienced nurses for a prestigious healthcare facility in your area.
 
@@ -123,21 +145,6 @@ I wanted to follow up regarding the nursing position we discussed previously. Ha
 I'm available to answer any questions you might have about the role or the facility.
 
 Looking forward to hearing from you.
-
-Best regards,
-[Your Name]
-Nurse Recruiter"""
-                    ),
-                    EmailTemplate(
-                        name="Network Update",
-                        subject="Nursing Industry Updates and Opportunities",
-                        body="""Dear [FIRST_NAME],
-
-I hope you're doing well. I'm reaching out to share some recent updates in the nursing field and new opportunities that have become available.
-
-As a professional in [SPECIALIZATION], I thought these might be of interest to you.
-
-Would you like to schedule a brief call to discuss these opportunities?
 
 Best regards,
 [Your Name]
